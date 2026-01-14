@@ -9,6 +9,8 @@ import { Box, Text, useInput } from "ink";
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
+import { useBestTimes } from "../use-high-scores.js";
+import { Leaderboard, formatTime } from "../Leaderboard.js";
 
 /** Minesweeper game metadata */
 export const minesweeperGameInfo: GameInfo = {
@@ -43,7 +45,7 @@ interface Cell {
 }
 
 /** Game status */
-type GameStatus = "playing" | "won" | "lost" | "selecting_difficulty";
+type GameStatus = "playing" | "won" | "lost" | "selecting_difficulty" | "leaderboard";
 
 /** Game state */
 interface MinesweeperState {
@@ -54,7 +56,8 @@ interface MinesweeperState {
   timeElapsed: number;
   difficultyIndex: number;
   firstClick: boolean;
-  bestTimes: number[];
+  /** Position on leaderboard after winning (0 if not on leaderboard) */
+  leaderboardPosition: number;
 }
 
 /** Create an empty board */
@@ -189,7 +192,7 @@ function createInitialState(difficultyIndex: number): MinesweeperState {
     timeElapsed: 0,
     difficultyIndex,
     firstClick: true,
-    bestTimes: [999, 999, 999], // Best times for each difficulty
+    leaderboardPosition: 0,
   };
 }
 
@@ -297,12 +300,6 @@ function GameHUD({
   bestTime: number;
   fps: number;
 }) {
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
   return (
     <Box flexDirection="column" marginLeft={1}>
       <Box borderStyle="single" flexDirection="column" paddingX={1}>
@@ -319,9 +316,7 @@ function GameHUD({
       </Box>
       <Box borderStyle="single" flexDirection="column" paddingX={1}>
         <Text dimColor>Best</Text>
-        <Text dimColor>
-          {bestTime < 999 ? formatTime(bestTime) : "--:--"}
-        </Text>
+        <Text dimColor>{formatTime(bestTime)}</Text>
       </Box>
       <Text dimColor>{fps} FPS</Text>
     </Box>
@@ -336,13 +331,6 @@ function DifficultySelector({
   selectedIndex: number;
   bestTimes: number[];
 }) {
-  const formatTime = (seconds: number) => {
-    if (seconds >= 999) return "--:--";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
   return (
     <Box flexDirection="column" alignItems="center" padding={2}>
       <Text bold color="cyan">
@@ -371,18 +359,12 @@ function DifficultySelector({
 function GameOverOverlay({
   won,
   timeElapsed,
-  newBest,
+  leaderboardPosition,
 }: {
   won: boolean;
   timeElapsed: number;
-  newBest: boolean;
+  leaderboardPosition: number;
 }) {
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
   return (
     <Box
       flexDirection="column"
@@ -396,10 +378,42 @@ function GameOverOverlay({
       <Text>
         Time: <Text color="yellow">{formatTime(timeElapsed)}</Text>
       </Text>
-      {won && newBest && <Text color="green">New Best Time!</Text>}
-      <Text dimColor>R to restart, D to change difficulty</Text>
+      {won && leaderboardPosition > 0 && (
+        <Box
+          flexDirection="column"
+          alignItems="center"
+          borderStyle="double"
+          borderColor="green"
+          paddingX={2}
+          paddingY={1}
+        >
+          <Text bold color="green">
+            NEW BEST TIME!
+          </Text>
+          <Text>
+            You ranked{" "}
+            <Text color="cyan">
+              {leaderboardPosition === 1
+                ? "1st"
+                : leaderboardPosition === 2
+                  ? "2nd"
+                  : leaderboardPosition === 3
+                    ? "3rd"
+                    : `${leaderboardPosition}th`}
+            </Text>{" "}
+            place!
+          </Text>
+        </Box>
+      )}
+      <Text dimColor>R to restart | H for leaderboard | D to change difficulty</Text>
     </Box>
   );
+}
+
+/** Get game ID for a specific difficulty */
+function getGameIdForDifficulty(difficultyIndex: number): string {
+  const diffName = DIFFICULTIES[difficultyIndex].name.toLowerCase();
+  return `minesweeper-${diffName}`;
 }
 
 /**
@@ -411,6 +425,30 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
   );
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState(0);
+  const scoreSubmittedRef = useRef(false);
+
+  // High score persistence for current difficulty
+  const { bestTime, leaderboard, submitTime } = useBestTimes(
+    getGameIdForDifficulty(state.difficultyIndex)
+  );
+
+  // Get best times for all difficulties for the selector
+  const { bestTime: easyBest } = useBestTimes("minesweeper-easy");
+  const { bestTime: mediumBest } = useBestTimes("minesweeper-medium");
+  const { bestTime: hardBest } = useBestTimes("minesweeper-hard");
+  const allBestTimes = [easyBest, mediumBest, hardBest];
+
+  // Submit time when game is won
+  useEffect(() => {
+    if (state.status === "won" && !scoreSubmittedRef.current && state.timeElapsed > 0) {
+      scoreSubmittedRef.current = true;
+      submitTime(state.timeElapsed, { difficulty: DIFFICULTIES[state.difficultyIndex].name }).then((position) => {
+        if (position > 0) {
+          setState((prev) => ({ ...prev, leaderboardPosition: position }));
+        }
+      });
+    }
+  }, [state.status, state.timeElapsed, state.difficultyIndex, submitTime]);
 
   // Game timer
   useEffect(() => {
@@ -509,16 +547,10 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
           }
 
           if (checkWin(newBoard)) {
-            const newBest = prev.timeElapsed < prev.bestTimes[prev.difficultyIndex];
-            const bestTimes = [...prev.bestTimes];
-            if (newBest) {
-              bestTimes[prev.difficultyIndex] = prev.timeElapsed;
-            }
             return {
               ...prev,
               board: newBoard,
               status: "won",
-              bestTimes,
             };
           }
 
@@ -554,16 +586,10 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
 
       // Check win condition
       if (checkWin(newBoard)) {
-        const newBest = prev.timeElapsed < prev.bestTimes[prev.difficultyIndex];
-        const bestTimes = [...prev.bestTimes];
-        if (newBest) {
-          bestTimes[prev.difficultyIndex] = prev.timeElapsed;
-        }
         return {
           ...prev,
           board: newBoard,
           status: "won",
-          bestTimes,
         };
       }
 
@@ -641,10 +667,8 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
             prev < DIFFICULTIES.length - 1 ? prev + 1 : 0
           );
         } else if (key.return) {
-          setState((prev) => ({
-            ...createInitialState(selectedDifficulty),
-            bestTimes: prev.bestTimes,
-          }));
+          scoreSubmittedRef.current = false;
+          setState(createInitialState(selectedDifficulty));
         }
         return;
       }
@@ -656,12 +680,19 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
         return;
       }
 
+      // Show leaderboard (when game over)
+      if ((input === "h" || input === "H") && (state.status === "won" || state.status === "lost" || state.status === "leaderboard")) {
+        setState((prev) => ({
+          ...prev,
+          status: prev.status === "leaderboard" ? "won" : "leaderboard",
+        }));
+        return;
+      }
+
       // Restart
       if (input === "r" || input === "R") {
-        setState((prev) => ({
-          ...createInitialState(prev.difficultyIndex),
-          bestTimes: prev.bestTimes,
-        }));
+        scoreSubmittedRef.current = false;
+        setState(createInitialState(state.difficultyIndex));
         return;
       }
 
@@ -693,7 +724,17 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
         <Box flexGrow={1} justifyContent="center" alignItems="center">
           <DifficultySelector
             selectedIndex={selectedDifficulty}
-            bestTimes={state.bestTimes}
+            bestTimes={allBestTimes}
+          />
+        </Box>
+      ) : state.status === "leaderboard" ? (
+        <Box flexGrow={1} justifyContent="center" alignItems="center">
+          <Leaderboard
+            title={`${diff.name} Best Times`}
+            scores={leaderboard}
+            lowerIsBetter={true}
+            formatScore={formatTime}
+            highlightPosition={state.leaderboardPosition}
           />
         </Box>
       ) : state.status === "won" || state.status === "lost" ? (
@@ -708,17 +749,14 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
               minesRemaining={state.minesRemaining}
               timeElapsed={state.timeElapsed}
               difficulty={diff.name}
-              bestTime={state.bestTimes[state.difficultyIndex]}
+              bestTime={bestTime}
               fps={loopInfo.fps}
             />
           </Box>
           <GameOverOverlay
             won={state.status === "won"}
             timeElapsed={state.timeElapsed}
-            newBest={
-              state.status === "won" &&
-              state.timeElapsed <= state.bestTimes[state.difficultyIndex]
-            }
+            leaderboardPosition={state.leaderboardPosition}
           />
         </Box>
       ) : (
@@ -732,7 +770,7 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
             minesRemaining={state.minesRemaining}
             timeElapsed={state.timeElapsed}
             difficulty={diff.name}
-            bestTime={state.bestTimes[state.difficultyIndex]}
+            bestTime={bestTime}
             fps={loopInfo.fps}
           />
         </Box>
@@ -741,7 +779,9 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
       <Box paddingX={1}>
         <Text dimColor>
           {hasFocus
-            ? "←→↑↓: Move | Space: Reveal | F: Flag | D: Difficulty | R: Restart | Q: Exit"
+            ? state.status === "leaderboard"
+              ? "H: Back | R: Restart | D: Difficulty | Q: Exit"
+              : "←→↑↓: Move | Space: Reveal | F: Flag | D: Difficulty | R: Restart | H: Times | Q: Exit"
             : "Press Tab to focus"}
         </Text>
       </Box>

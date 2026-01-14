@@ -6,7 +6,7 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { GameComponentProps, GameInfo } from "../game-types.js";
 import {
   type Direction,
@@ -16,6 +16,8 @@ import {
   addVectors,
 } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
+import { useHighScores } from "../use-high-scores.js";
+import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
 
 /** Snake game metadata */
 export const snakeGameInfo: GameInfo = {
@@ -33,9 +35,10 @@ interface SnakeState {
   nextDirection: Direction;
   food: Point;
   score: number;
-  highScore: number;
-  status: "playing" | "paused" | "game_over";
+  status: "playing" | "paused" | "game_over" | "leaderboard";
   speed: number;
+  /** Position on leaderboard after game over (0 if not on leaderboard) */
+  leaderboardPosition: number;
 }
 
 function createInitialState(width: number, height: number): SnakeState {
@@ -52,9 +55,9 @@ function createInitialState(width: number, height: number): SnakeState {
     nextDirection: "right",
     food: spawnFood(width, height, [{ x: centerX, y: centerY }]),
     score: 0,
-    highScore: 0,
     status: "playing",
     speed: 150, // ms per move
+    leaderboardPosition: 0,
   };
 }
 
@@ -165,10 +168,10 @@ function GameBoard({ snake, food, width, height }: GameBoardProps) {
 
 function GameOverOverlay({
   score,
-  highScore,
+  leaderboardPosition,
 }: {
   score: number;
-  highScore: number;
+  leaderboardPosition: number;
 }) {
   return (
     <Box
@@ -183,10 +186,10 @@ function GameOverOverlay({
       <Text>
         Score: <Text color="yellow">{score}</Text>
       </Text>
-      {score >= highScore && score > 0 && (
-        <Text color="green">New High Score!</Text>
+      {leaderboardPosition > 0 && (
+        <NewHighScoreBanner position={leaderboardPosition} score={score} />
       )}
-      <Text dimColor>Press R to restart</Text>
+      <Text dimColor>Press R to restart | H for leaderboard</Text>
     </Box>
   );
 }
@@ -247,14 +250,30 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
   );
 
   const [lastMoveTime, setLastMoveTime] = useState(0);
+  const scoreSubmittedRef = useRef(false);
+
+  // High score persistence
+  const { highScore, leaderboard, submitScore } = useHighScores("snake");
 
   // Reset game when dimensions change significantly
   useEffect(() => {
     setState((prev) => ({
       ...createInitialState(boardWidth, boardHeight),
-      highScore: prev.highScore,
+      leaderboardPosition: prev.leaderboardPosition,
     }));
   }, [boardWidth, boardHeight]);
+
+  // Submit score when game ends
+  useEffect(() => {
+    if (state.status === "game_over" && !scoreSubmittedRef.current && state.score > 0) {
+      scoreSubmittedRef.current = true;
+      submitScore(state.score).then((position) => {
+        if (position > 0) {
+          setState((prev) => ({ ...prev, leaderboardPosition: position }));
+        }
+      });
+    }
+  }, [state.status, state.score, submitScore]);
 
   const moveSnake = useCallback(() => {
     setState((prev) => {
@@ -276,7 +295,6 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
         return {
           ...prev,
           status: "game_over",
-          highScore: Math.max(prev.highScore, prev.score),
         };
       }
 
@@ -285,7 +303,6 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
         return {
           ...prev,
           status: "game_over",
-          highScore: Math.max(prev.highScore, prev.score),
         };
       }
 
@@ -338,11 +355,18 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
 
       // Restart
       if (input === "r" || input === "R") {
-        setState((prev) => ({
-          ...createInitialState(boardWidth, boardHeight),
-          highScore: prev.highScore,
-        }));
+        scoreSubmittedRef.current = false;
+        setState(createInitialState(boardWidth, boardHeight));
         setLastMoveTime(0);
+        return;
+      }
+
+      // Show leaderboard (when game over or paused)
+      if ((input === "h" || input === "H") && state.status !== "playing") {
+        setState((prev) => ({
+          ...prev,
+          status: prev.status === "leaderboard" ? "game_over" : "leaderboard",
+        }));
         return;
       }
 
@@ -387,13 +411,22 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
     <Box flexDirection="column" height="100%">
       <GameHUD
         score={state.score}
-        highScore={state.highScore}
+        highScore={highScore}
         fps={loopInfo.fps}
       />
 
       <Box flexGrow={1} justifyContent="center" alignItems="center">
-        {state.status === "game_over" ? (
-          <GameOverOverlay score={state.score} highScore={state.highScore} />
+        {state.status === "leaderboard" ? (
+          <Leaderboard
+            title="Snake High Scores"
+            scores={leaderboard}
+            highlightPosition={state.leaderboardPosition}
+          />
+        ) : state.status === "game_over" ? (
+          <GameOverOverlay
+            score={state.score}
+            leaderboardPosition={state.leaderboardPosition}
+          />
         ) : state.status === "paused" ? (
           <PausedOverlay />
         ) : (
@@ -409,7 +442,9 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
       <Box paddingX={1}>
         <Text dimColor>
           {hasFocus
-            ? "Arrow/WASD: Move | P: Pause | R: Restart | Q: Exit"
+            ? state.status === "leaderboard"
+              ? "H: Back | R: Restart | Q: Exit"
+              : "Arrow/WASD: Move | P: Pause | R: Restart | H: Scores | Q: Exit"
             : "Press Tab to focus"}
         </Text>
       </Box>

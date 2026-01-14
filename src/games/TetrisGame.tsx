@@ -6,9 +6,11 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
+import { useHighScores } from "../use-high-scores.js";
+import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
 
 /** Tetris game metadata */
 export const tetrisGameInfo: GameInfo = {
@@ -43,12 +45,13 @@ interface TetrisState {
   piecePosition: Point;
   nextPiece: TetrominoType;
   score: number;
-  highScore: number;
   level: number;
   lines: number;
-  status: "playing" | "paused" | "game_over";
+  status: "playing" | "paused" | "game_over" | "leaderboard";
   clearingLines: number[];
   clearAnimFrame: number;
+  /** Position on leaderboard after game over (0 if not on leaderboard) */
+  leaderboardPosition: number;
 }
 
 /** Board dimensions */
@@ -286,12 +289,12 @@ function createInitialState(): TetrisState {
     piecePosition: { x: Math.floor((BOARD_WIDTH - 4) / 2), y: 0 },
     nextPiece,
     score: 0,
-    highScore: 0,
     level: 0,
     lines: 0,
     status: "playing",
     clearingLines: [],
     clearAnimFrame: 0,
+    leaderboardPosition: 0,
   };
 }
 
@@ -429,10 +432,10 @@ function GameBoard({
 /** Game over overlay */
 function GameOverOverlay({
   score,
-  highScore,
+  leaderboardPosition,
 }: {
   score: number;
-  highScore: number;
+  leaderboardPosition: number;
 }) {
   return (
     <Box
@@ -447,10 +450,10 @@ function GameOverOverlay({
       <Text>
         Score: <Text color="yellow">{score}</Text>
       </Text>
-      {score >= highScore && score > 0 && (
-        <Text color="green">New High Score!</Text>
+      {leaderboardPosition > 0 && (
+        <NewHighScoreBanner position={leaderboardPosition} score={score} />
       )}
-      <Text dimColor>Press R to restart</Text>
+      <Text dimColor>Press R to restart | H for leaderboard</Text>
     </Box>
   );
 }
@@ -516,6 +519,22 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
   const [state, setState] = useState<TetrisState>(() => createInitialState());
   const lastDropTime = useRef(0);
   const clearAnimTimer = useRef(0);
+  const scoreSubmittedRef = useRef(false);
+
+  // High score persistence
+  const { highScore, leaderboard, submitScore } = useHighScores("tetris");
+
+  // Submit score when game ends
+  useEffect(() => {
+    if (state.status === "game_over" && !scoreSubmittedRef.current && state.score > 0) {
+      scoreSubmittedRef.current = true;
+      submitScore(state.score, { level: state.level, lines: state.lines }).then((position) => {
+        if (position > 0) {
+          setState((prev) => ({ ...prev, leaderboardPosition: position }));
+        }
+      });
+    }
+  }, [state.status, state.score, state.level, state.lines, submitScore]);
 
   // Lock piece and check for lines
   const lockPiece = useCallback(() => {
@@ -549,7 +568,6 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
           ...prev,
           board: newBoard,
           status: "game_over",
-          highScore: Math.max(prev.highScore, prev.score),
         };
       }
 
@@ -673,7 +691,6 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
           board: newBoard,
           score: newScore,
           status: "game_over",
-          highScore: Math.max(prev.highScore, newScore),
         };
       }
 
@@ -726,7 +743,6 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
                   clearingLines: [],
                   clearAnimFrame: 0,
                   status: "game_over",
-                  highScore: Math.max(prev.highScore, prev.score + lineScore),
                 };
               }
 
@@ -771,12 +787,19 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
 
       // Restart
       if (input === "r" || input === "R") {
-        setState((prev) => ({
-          ...createInitialState(),
-          highScore: prev.highScore,
-        }));
+        scoreSubmittedRef.current = false;
+        setState(createInitialState());
         lastDropTime.current = 0;
         clearAnimTimer.current = 0;
+        return;
+      }
+
+      // Show leaderboard (when game over or paused)
+      if ((input === "h" || input === "H") && state.status !== "playing") {
+        setState((prev) => ({
+          ...prev,
+          status: prev.status === "leaderboard" ? "game_over" : "leaderboard",
+        }));
         return;
       }
 
@@ -810,9 +833,20 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
 
   return (
     <Box flexDirection="column" height="100%">
-      {state.status === "game_over" ? (
+      {state.status === "leaderboard" ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <GameOverOverlay score={state.score} highScore={state.highScore} />
+          <Leaderboard
+            title="Tetris High Scores"
+            scores={leaderboard}
+            highlightPosition={state.leaderboardPosition}
+          />
+        </Box>
+      ) : state.status === "game_over" ? (
+        <Box flexGrow={1} justifyContent="center" alignItems="center">
+          <GameOverOverlay
+            score={state.score}
+            leaderboardPosition={state.leaderboardPosition}
+          />
         </Box>
       ) : state.status === "paused" ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">
@@ -831,7 +865,7 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
             <NextPiecePreview pieceType={state.nextPiece} />
             <GameHUD
               score={state.score}
-              highScore={state.highScore}
+              highScore={highScore}
               level={state.level}
               lines={state.lines}
               fps={loopInfo.fps}
@@ -843,7 +877,9 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
       <Box paddingX={1}>
         <Text dimColor>
           {hasFocus
-            ? "←→: Move | ↑: Rotate | ↓: Soft | Space: Drop | P: Pause | R: Restart | Q: Exit"
+            ? state.status === "leaderboard"
+              ? "H: Back | R: Restart | Q: Exit"
+              : "←→: Move | ↑: Rotate | ↓: Soft | Space: Drop | P: Pause | R: Restart | H: Scores | Q: Exit"
             : "Press Tab to focus"}
         </Text>
       </Box>
