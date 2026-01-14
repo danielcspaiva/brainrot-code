@@ -1,19 +1,23 @@
 #!/usr/bin/env node
 import { render, Box, Text, useInput, useApp } from "ink";
+import { useState } from "react";
 import { useClaudeCode } from "./use-claude-code.js";
 import { useRalphLoopWithClaudeOutput } from "./use-ralph-loop.js";
 import { Layout } from "./Layout.js";
 import { LoopManagementPanel } from "./LoopManagementPanel.js";
+import { LogViewer } from "./LogViewer.js";
 
 /** Game area placeholder - will be replaced with actual game */
-function GameArea() {
+function GameArea({
+  logs,
+  hasFocus,
+}: {
+  logs: { type: "stdout" | "stderr"; content: string; timestamp: Date }[];
+  hasFocus: boolean;
+}) {
   return (
-    <Box flexDirection="column" padding={1}>
-      <Text color="yellow">Game Area</Text>
-      <Text dimColor>Games will appear here while Claude Code works.</Text>
-      <Box marginTop={1}>
-        <Text>Coming soon...</Text>
-      </Box>
+    <Box flexDirection="column" height="100%">
+      <LogViewer logs={logs} hasFocus={hasFocus} initialViewMode="condensed" />
     </Box>
   );
 }
@@ -43,6 +47,7 @@ function Footer() {
 function App() {
   const { exit } = useApp();
   const { status, output, spawn, stop } = useClaudeCode();
+  const [focusedPane, setFocusedPane] = useState<0 | 1>(0);
 
   // Use Ralph loop parsing for the output
   const ralphLoop = useRalphLoopWithClaudeOutput(output);
@@ -62,11 +67,17 @@ function App() {
       }
       return;
     }
+
+    // Track focus changes via Tab key
+    if (key.tab) {
+      setFocusedPane((current) => (current === 0 ? 1 : 0));
+      return;
+    }
   });
 
   return (
     <Layout
-      gameArea={<GameArea />}
+      gameArea={<GameArea logs={output} hasFocus={focusedPane === 0} />}
       managementArea={
         <LoopManagementPanel
           loopState={ralphLoop.state}
@@ -78,7 +89,7 @@ function App() {
           onStop={() => void stop()}
         />
       }
-      gameTitle="Game"
+      gameTitle="Live Logs"
       managementTitle="Loop Management"
       header={<Header />}
       footer={<Footer />}
