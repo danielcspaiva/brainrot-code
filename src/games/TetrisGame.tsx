@@ -517,7 +517,7 @@ function GameHUD({
 /**
  * Tetris game component
  */
-export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
+export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
   const [state, setState] = useState<TetrisState>(() => createInitialState());
   const lastDropTime = useRef(0);
   const clearAnimTimer = useRef(0);
@@ -531,6 +531,16 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
 
   // Stats tracking
   const { startSession, endSession, isSessionActive } = useGameSession("tetris");
+
+  // Report game state changes to status bar
+  useEffect(() => {
+    const mappedStatus = state.status === "leaderboard" ? "game_over" : state.status;
+    onGameStateChange?.({
+      score: state.score,
+      status: mappedStatus,
+      highScore,
+    });
+  }, [state.score, state.status, highScore, onGameStateChange]);
 
   // Auto-pause when loop needs attention
   useEffect(() => {

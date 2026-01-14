@@ -120,3 +120,12 @@ export {
   type ThemeGameColors,
   type ThemeRankColors,
 } from "../themes.js";
+
+// Status bar component
+export {
+  StatusBar,
+  GameStatusProvider,
+  useGameStatus,
+  type StatusBarProps,
+  type CurrentGameState,
+} from "../StatusBar.js";

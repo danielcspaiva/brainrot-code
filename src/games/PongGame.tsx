@@ -246,7 +246,7 @@ function PausedOverlay() {
 /**
  * Pong game component
  */
-export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
+export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
   const boardWidth = Math.max(dimensions.width - 2, 25);
   const boardHeight = Math.max(dimensions.height - 5, 12);
 
@@ -261,6 +261,15 @@ export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAl
 
   // Stats tracking
   const { startSession, endSession, isSessionActive } = useGameSession("pong");
+
+  // Report game state changes to status bar
+  useEffect(() => {
+    onGameStateChange?.({
+      score: state.playerScore,
+      status: state.status,
+      highScore: WIN_SCORE, // Use win score as reference
+    });
+  }, [state.playerScore, state.status, onGameStateChange]);
 
   // Reset game when dimensions change
   useEffect(() => {

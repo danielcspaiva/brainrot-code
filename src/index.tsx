@@ -16,8 +16,9 @@ import { getLayoutOptions, getClaudeCodeOptions, deepMerge, saveConfig, type Bra
 import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import { recordSessionStart } from "./stats.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
-import type { GameDimensions, LoopAttention } from "./game-types.js";
+import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
+import { StatusBar, GameStatusProvider, useGameStatus } from "./StatusBar.js";
 
 // ============================================================================
 // CLI OVERRIDE CONTEXT
@@ -47,6 +48,7 @@ interface GameAreaProps {
   onConfigChange: (updates: Partial<BrainrotConfig>) => void;
   onConfigSave: () => Promise<void>;
   onAchievementUnlock: (ids: string[]) => void;
+  onGameStateChange: (update: GameStateUpdate) => void;
 }
 
 /** Game area with mode switching between menu, logs, settings, stats, and active game */
@@ -60,22 +62,31 @@ function GameArea({
   onConfigChange,
   onConfigSave,
   onAchievementUnlock: _onAchievementUnlock,
+  onGameStateChange,
 }: GameAreaProps) {
   const [mode, setMode] = useState<GameAreaMode>("menu");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const colors = useThemeColors();
+  const { setGameState, clearGameState } = useGameStatus();
 
   const games = useMemo(() => getGameList(), []);
 
   const handleSelectGame = useCallback((gameId: string) => {
     setSelectedGameId(gameId);
     setMode("game");
-  }, []);
+    // Set game name in status bar
+    const gameInfo = getGameById(gameId);
+    if (gameInfo) {
+      setGameState({ gameId, gameName: gameInfo.info.name });
+    }
+  }, [setGameState]);
 
   const handleExitGame = useCallback(() => {
     setSelectedGameId(null);
     setMode("menu");
-  }, []);
+    // Clear game state from status bar
+    clearGameState();
+  }, [clearGameState]);
 
   const handleCloseSettings = useCallback(() => {
     setMode("menu");
@@ -162,6 +173,7 @@ function GameArea({
           onExit={handleExitGame}
           loopAttention={loopAttention}
           onLoopAlertDismiss={onLoopAlertDismiss}
+          onGameStateChange={onGameStateChange}
         />
       );
     }
@@ -198,16 +210,18 @@ function Header() {
   );
 }
 
-/** Footer with global controls */
-function Footer() {
+/** Status bar footer - needs to be inside GameStatusProvider */
+function StatusBarFooter({ loopStatus, needsAttention }: { loopStatus: string; needsAttention: boolean }) {
   return (
-    <Box>
-      <Text dimColor>Ctrl+C: Exit</Text>
-    </Box>
+    <StatusBar
+      loopStatus={loopStatus}
+      needsAttention={needsAttention}
+      condensed={true}
+    />
   );
 }
 
-function App() {
+function AppContent() {
   const { exit } = useApp();
   const { config: fileConfig } = useConfig();
   const cliOverrides = useCLIOverrides();
@@ -304,6 +318,21 @@ function App() {
     }
   });
 
+  // Handler for game state updates from games
+  const { setGameState } = useGameStatus();
+  const handleGameStateChange = useCallback((update: GameStateUpdate) => {
+    setGameState(update);
+  }, [setGameState]);
+
+  // Determine effective loop status for status bar
+  const effectiveLoopStatus = useMemo(() => {
+    // If process is running, use ralph loop status, otherwise use process status
+    if (status === "running") {
+      return ralphLoop.state.status;
+    }
+    return status;
+  }, [status, ralphLoop.state.status]);
+
   return (
     <ThemeProvider config={config}>
       {/* Achievement notification overlay */}
@@ -324,6 +353,7 @@ function App() {
             onConfigChange={handleConfigChange}
             onConfigSave={handleConfigSave}
             onAchievementUnlock={addAchievements}
+            onGameStateChange={handleGameStateChange}
           />
         }
         managementArea={
@@ -340,10 +370,19 @@ function App() {
         gameTitle="Games"
         managementTitle="Loop Management"
         header={<Header />}
-        footer={<Footer />}
+        footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
       />
     </ThemeProvider>
+  );
+}
+
+/** App wrapper that provides GameStatusProvider context */
+function App() {
+  return (
+    <GameStatusProvider>
+      <AppContent />
+    </GameStatusProvider>
   );
 }
 

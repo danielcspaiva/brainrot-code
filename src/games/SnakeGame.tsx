@@ -242,7 +242,7 @@ function GameHUD({
 /**
  * Snake game component
  */
-export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
+export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
   // Calculate game board size (leaving room for HUD and controls)
   const boardWidth = Math.max(dimensions.width - 2, 15);
   const boardHeight = Math.max(dimensions.height - 5, 8);
@@ -259,6 +259,16 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
 
   // High score persistence
   const { highScore, leaderboard, submitScore } = useHighScores("snake");
+
+  // Report game state changes to status bar
+  useEffect(() => {
+    const mappedStatus = state.status === "leaderboard" ? "game_over" : state.status;
+    onGameStateChange?.({
+      score: state.score,
+      status: mappedStatus,
+      highScore,
+    });
+  }, [state.score, state.status, highScore, onGameStateChange]);
 
   // Stats tracking
   const { startSession, endSession, isSessionActive } = useGameSession("snake");

@@ -77,6 +77,18 @@ export interface LoopAttention {
 }
 
 /**
+ * Game state update for status bar
+ */
+export interface GameStateUpdate {
+  /** Current score */
+  score: number | null;
+  /** Game status */
+  status: "playing" | "paused" | "game_over" | "menu" | null;
+  /** High score for comparison */
+  highScore: number | null;
+}
+
+/**
  * Props passed to game components
  */
 export interface GameComponentProps {
@@ -90,6 +102,8 @@ export interface GameComponentProps {
   loopAttention?: LoopAttention;
   /** Callback when user acknowledges/dismisses loop alert */
   onLoopAlertDismiss?: () => void;
+  /** Callback to report game state changes to status bar */
+  onGameStateChange?: (update: GameStateUpdate) => void;
 }
 
 /**

@@ -421,7 +421,7 @@ function getGameIdForDifficulty(difficultyIndex: number): string {
 /**
  * Minesweeper game component
  */
-export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
+export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
   const [state, setState] = useState<MinesweeperState>(() =>
     createInitialState(0)
   );
@@ -439,6 +439,20 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
 
   // Stats tracking
   const { startSession, endSession, isSessionActive } = useGameSession("minesweeper");
+
+  // Report game state changes to status bar
+  useEffect(() => {
+    // Map minesweeper-specific status to generic game status
+    const mappedStatus =
+      state.status === "won" || state.status === "lost" ? "game_over" :
+      state.status === "selecting_difficulty" || state.status === "leaderboard" ? "menu" :
+      state.status;
+    onGameStateChange?.({
+      score: state.timeElapsed, // Use time as "score" for minesweeper
+      status: mappedStatus,
+      highScore: bestTime > 0 ? bestTime : null,
+    });
+  }, [state.timeElapsed, state.status, bestTime, onGameStateChange]);
 
   // Auto-pause when loop needs attention
   useEffect(() => {
