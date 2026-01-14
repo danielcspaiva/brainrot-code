@@ -18,6 +18,7 @@ import { recordSessionStart } from "./stats.js";
 import { useLoopState, useLoopStateExists } from "./use-loop-state.js";
 import { OnboardingTutorial } from "./OnboardingTutorial.js";
 import { ResumeOverlay, type ResumeAction } from "./ResumeOverlay.js";
+import { FeaturePromptScreen } from "./FeaturePromptScreen.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -269,6 +270,7 @@ function AppContent() {
   const [showHelpOverlay, setShowHelpOverlay] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [showFeaturePrompt, setShowFeaturePrompt] = useState(false);
   const [showResumeOverlay, setShowResumeOverlay] = useState(false);
   const [resumeOverlayDismissed, setResumeOverlayDismissed] = useState(false);
   const terminalSize = useTerminalSize();
@@ -294,10 +296,31 @@ function AppContent() {
     }
   }, [isCheckingLoopState, loopStateExists, onboardingCompleted, resumeOverlayDismissed, loopState.hasLoop]);
 
-  // Handle onboarding completion
+  // Handle onboarding completion - show feature prompt next
   const handleOnboardingComplete = useCallback(() => {
     setShowOnboarding(false);
     setOnboardingCompleted(true);
+    // Show feature prompt screen after onboarding
+    setShowFeaturePrompt(true);
+  }, []);
+
+  // Handle feature prompt completion
+  const handleFeaturePromptComplete = useCallback((prompt: string) => {
+    setShowFeaturePrompt(false);
+    // Store the feature prompt in loop state
+    if (prompt) {
+      loopState.state.prd = {
+        name: prompt,
+        description: prompt,
+      };
+    }
+  }, [loopState.state]);
+
+  // Handle going back from feature prompt to onboarding
+  const handleFeaturePromptBack = useCallback(() => {
+    setShowFeaturePrompt(false);
+    setShowOnboarding(true);
+    setOnboardingCompleted(false);
   }, []);
 
   // Handle resume overlay action selection
@@ -376,9 +399,9 @@ function AppContent() {
       return;
     }
 
-    // When onboarding or resume overlay is shown, only handle Ctrl+C (above)
+    // When onboarding, feature prompt, or resume overlay is shown, only handle Ctrl+C (above)
     // These components handle their own keyboard input
-    if (showOnboarding || showResumeOverlay) {
+    if (showOnboarding || showFeaturePrompt || showResumeOverlay) {
       return;
     }
 
@@ -448,8 +471,27 @@ function AppContent() {
           />
         </Box>
       )}
+      {/* Feature prompt screen - shown after onboarding for first-time users */}
+      {showFeaturePrompt && !showOnboarding && (
+        <Box
+          position="absolute"
+          width={terminalSize.width}
+          height={terminalSize.height}
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <FeaturePromptScreen
+            isVisible={showFeaturePrompt}
+            onComplete={handleFeaturePromptComplete}
+            onBack={handleFeaturePromptBack}
+            hasFocus={showFeaturePrompt}
+            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+          />
+        </Box>
+      )}
       {/* Resume overlay - full-screen modal for returning users */}
-      {showResumeOverlay && !showOnboarding && (
+      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && (
         <Box
           position="absolute"
           width={terminalSize.width}
@@ -468,13 +510,13 @@ function AppContent() {
         </Box>
       )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && !showResumeOverlay && (
+      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showResumeOverlay && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && !showResumeOverlay && (
+      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showResumeOverlay && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -483,7 +525,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showResumeOverlay}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showResumeOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -510,7 +552,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding && !showResumeOverlay}
+        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showResumeOverlay}
       />
     </ThemeProvider>
   );
