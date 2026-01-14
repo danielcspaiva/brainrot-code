@@ -19,6 +19,7 @@ import { useLoopState, useLoopStateExists } from "./use-loop-state.js";
 import { OnboardingTutorial } from "./OnboardingTutorial.js";
 import { ResumeOverlay, type ResumeAction } from "./ResumeOverlay.js";
 import { FeaturePromptScreen } from "./FeaturePromptScreen.js";
+import { InterviewQuestion } from "./InterviewQuestion.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -271,6 +272,7 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [showFeaturePrompt, setShowFeaturePrompt] = useState(false);
+  const [showInterviewQuestion, setShowInterviewQuestion] = useState(false);
   const [showResumeOverlay, setShowResumeOverlay] = useState(false);
   const [resumeOverlayDismissed, setResumeOverlayDismissed] = useState(false);
   const terminalSize = useTerminalSize();
@@ -304,7 +306,7 @@ function AppContent() {
     setShowFeaturePrompt(true);
   }, []);
 
-  // Handle feature prompt completion
+  // Handle feature prompt completion - show interview question next
   const handleFeaturePromptComplete = useCallback((prompt: string) => {
     setShowFeaturePrompt(false);
     // Store the feature prompt in loop state
@@ -314,7 +316,24 @@ function AppContent() {
         description: prompt,
       };
     }
+    // Show interview question screen next
+    setShowInterviewQuestion(true);
   }, [loopState.state]);
+
+  // Handle interview question answer
+  const handleInterviewAnswer = useCallback((answer: string) => {
+    setShowInterviewQuestion(false);
+    // Store the answer in loop state (extend PRD content)
+    if (loopState.state.prd) {
+      loopState.state.prd.content = answer;
+    }
+  }, [loopState.state]);
+
+  // Handle going back from interview question to feature prompt
+  const handleInterviewQuestionBack = useCallback(() => {
+    setShowInterviewQuestion(false);
+    setShowFeaturePrompt(true);
+  }, []);
 
   // Handle going back from feature prompt to onboarding
   const handleFeaturePromptBack = useCallback(() => {
@@ -399,9 +418,9 @@ function AppContent() {
       return;
     }
 
-    // When onboarding, feature prompt, or resume overlay is shown, only handle Ctrl+C (above)
+    // When onboarding, feature prompt, interview question, or resume overlay is shown, only handle Ctrl+C (above)
     // These components handle their own keyboard input
-    if (showOnboarding || showFeaturePrompt || showResumeOverlay) {
+    if (showOnboarding || showFeaturePrompt || showInterviewQuestion || showResumeOverlay) {
       return;
     }
 
@@ -490,8 +509,35 @@ function AppContent() {
           />
         </Box>
       )}
+      {/* Interview question screen - shown after feature prompt */}
+      {showInterviewQuestion && !showOnboarding && !showFeaturePrompt && (
+        <Box
+          position="absolute"
+          width={terminalSize.width}
+          height={terminalSize.height}
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <InterviewQuestion
+            isVisible={showInterviewQuestion}
+            question="What type of project is this?"
+            header="Project Context"
+            options={[
+              { label: "Web application (frontend/fullstack)", value: "web" },
+              { label: "Backend API or service", value: "backend" },
+              { label: "CLI tool or script", value: "cli" },
+              { label: "Mobile app", value: "mobile" },
+            ]}
+            onAnswer={handleInterviewAnswer}
+            onBack={handleInterviewQuestionBack}
+            hasFocus={showInterviewQuestion}
+            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+          />
+        </Box>
+      )}
       {/* Resume overlay - full-screen modal for returning users */}
-      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && (
+      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && (
         <Box
           position="absolute"
           width={terminalSize.width}
@@ -510,13 +556,13 @@ function AppContent() {
         </Box>
       )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showResumeOverlay && (
+      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showResumeOverlay && (
+      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -525,7 +571,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showResumeOverlay}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -552,7 +598,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showResumeOverlay}
+        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay}
       />
     </ThemeProvider>
   );
