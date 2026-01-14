@@ -9,6 +9,7 @@ import { Box, Text, useInput } from "ink";
 import { useState, useCallback, useEffect } from "react";
 import type { GameComponentProps, GameInfo } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
+import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 
 /** Pong game metadata */
 export const pongGameInfo: GameInfo = {
@@ -237,7 +238,7 @@ function PausedOverlay() {
 /**
  * Pong game component
  */
-export function PongGame({ hasFocus, dimensions, onExit }: GameComponentProps) {
+export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
   const boardWidth = Math.max(dimensions.width - 2, 25);
   const boardHeight = Math.max(dimensions.height - 5, 12);
 
@@ -246,11 +247,34 @@ export function PongGame({ hasFocus, dimensions, onExit }: GameComponentProps) {
   );
 
   const [playerDirection, setPlayerDirection] = useState<-1 | 0 | 1>(0);
+  const [showLoopAlert, setShowLoopAlert] = useState(false);
+  const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
   // Reset game when dimensions change
   useEffect(() => {
     setState(createInitialState(boardWidth, boardHeight));
   }, [boardWidth, boardHeight]);
+
+  // Auto-pause when loop needs attention
+  useEffect(() => {
+    if (loopAttention?.needsAttention && state.status === "playing") {
+      setWasPlayingBeforeAlert(true);
+      setShowLoopAlert(true);
+      setState((prev) => ({ ...prev, status: "paused" }));
+    } else if (!loopAttention?.needsAttention && showLoopAlert) {
+      setShowLoopAlert(false);
+      // Auto-resume if we were playing before the alert
+      if (wasPlayingBeforeAlert) {
+        setState((prev) => {
+          if (prev.status === "paused") {
+            return { ...prev, status: "playing" };
+          }
+          return prev;
+        });
+        setWasPlayingBeforeAlert(false);
+      }
+    }
+  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
 
   const updateGame = useCallback(
     (deltaTime: number) => {
@@ -407,8 +431,20 @@ export function PongGame({ hasFocus, dimensions, onExit }: GameComponentProps) {
         return;
       }
 
+      // Dismiss loop alert with Enter key
+      if (key.return && showLoopAlert) {
+        setShowLoopAlert(false);
+        onLoopAlertDismiss?.();
+        return;
+      }
+
       // Pause/unpause
       if (input === "p" || input === "P") {
+        // If we're showing loop alert, dismiss it and resume
+        if (showLoopAlert) {
+          setShowLoopAlert(false);
+          setWasPlayingBeforeAlert(false);
+        }
         setState((prev) => ({
           ...prev,
           status: prev.status === "playing" ? "paused" : "playing",
@@ -446,6 +482,8 @@ export function PongGame({ hasFocus, dimensions, onExit }: GameComponentProps) {
       <Box flexGrow={1} justifyContent="center" alignItems="center">
         {state.status === "game_over" && state.winner ? (
           <GameOverOverlay winner={state.winner} />
+        ) : state.status === "paused" && showLoopAlert && loopAttention ? (
+          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
         ) : state.status === "paused" ? (
           <PausedOverlay />
         ) : (

@@ -63,6 +63,20 @@ export interface GameInfo {
 }
 
 /**
+ * Loop attention information passed to games
+ */
+export interface LoopAttention {
+  /** Whether the loop needs user attention */
+  needsAttention: boolean;
+  /** Reason for needing attention */
+  reason: string | null;
+  /** Type of attention needed */
+  type: "question" | "confirmation" | "error" | "permission" | null;
+  /** Prompt text if any */
+  prompt: string | null;
+}
+
+/**
  * Props passed to game components
  */
 export interface GameComponentProps {
@@ -72,6 +86,10 @@ export interface GameComponentProps {
   dimensions: GameDimensions;
   /** Callback when game wants to return to menu */
   onExit: () => void;
+  /** Loop attention state for auto-pause feature */
+  loopAttention?: LoopAttention;
+  /** Callback when user acknowledges/dismisses loop alert */
+  onLoopAlertDismiss?: () => void;
 }
 
 /**

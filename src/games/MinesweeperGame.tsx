@@ -11,6 +11,7 @@ import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { useBestTimes } from "../use-high-scores.js";
 import { Leaderboard, formatTime } from "../Leaderboard.js";
+import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 
 /** Minesweeper game metadata */
 export const minesweeperGameInfo: GameInfo = {
@@ -45,7 +46,7 @@ interface Cell {
 }
 
 /** Game status */
-type GameStatus = "playing" | "won" | "lost" | "selecting_difficulty" | "leaderboard";
+type GameStatus = "playing" | "paused" | "won" | "lost" | "selecting_difficulty" | "leaderboard";
 
 /** Game state */
 interface MinesweeperState {
@@ -419,18 +420,41 @@ function getGameIdForDifficulty(difficultyIndex: number): string {
 /**
  * Minesweeper game component
  */
-export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
+export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
   const [state, setState] = useState<MinesweeperState>(() =>
     createInitialState(0)
   );
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState(0);
   const scoreSubmittedRef = useRef(false);
+  const [showLoopAlert, setShowLoopAlert] = useState(false);
+  const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
   // High score persistence for current difficulty
   const { bestTime, leaderboard, submitTime } = useBestTimes(
     getGameIdForDifficulty(state.difficultyIndex)
   );
+
+  // Auto-pause when loop needs attention
+  useEffect(() => {
+    if (loopAttention?.needsAttention && state.status === "playing") {
+      setWasPlayingBeforeAlert(true);
+      setShowLoopAlert(true);
+      setState((prev) => ({ ...prev, status: "paused" }));
+    } else if (!loopAttention?.needsAttention && showLoopAlert) {
+      setShowLoopAlert(false);
+      // Auto-resume if we were playing before the alert
+      if (wasPlayingBeforeAlert) {
+        setState((prev) => {
+          if (prev.status === "paused") {
+            return { ...prev, status: "playing" };
+          }
+          return prev;
+        });
+        setWasPlayingBeforeAlert(false);
+      }
+    }
+  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
 
   // Get best times for all difficulties for the selector
   const { bestTime: easyBest } = useBestTimes("minesweeper-easy");
@@ -689,6 +713,27 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
         return;
       }
 
+      // Dismiss loop alert with Enter key when paused and showing alert
+      if (key.return && showLoopAlert && state.status === "paused") {
+        setShowLoopAlert(false);
+        onLoopAlertDismiss?.();
+        return;
+      }
+
+      // Pause/unpause
+      if (input === "p" || input === "P") {
+        // If we're showing loop alert, dismiss it and resume
+        if (showLoopAlert) {
+          setShowLoopAlert(false);
+          setWasPlayingBeforeAlert(false);
+        }
+        setState((prev) => ({
+          ...prev,
+          status: prev.status === "playing" ? "paused" : prev.status === "paused" ? "playing" : prev.status,
+        }));
+        return;
+      }
+
       // Restart
       if (input === "r" || input === "R") {
         scoreSubmittedRef.current = false;
@@ -736,6 +781,24 @@ export function MinesweeperGame({ hasFocus, onExit }: GameComponentProps) {
             formatScore={formatTime}
             highlightPosition={state.leaderboardPosition}
           />
+        </Box>
+      ) : state.status === "paused" && showLoopAlert && loopAttention ? (
+        <Box flexGrow={1} justifyContent="center" alignItems="center">
+          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
+        </Box>
+      ) : state.status === "paused" ? (
+        <Box flexGrow={1} justifyContent="center" alignItems="center">
+          <Box
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            padding={1}
+          >
+            <Text bold color="yellow">
+              PAUSED
+            </Text>
+            <Text dimColor>Press P to resume</Text>
+          </Box>
         </Box>
       ) : state.status === "won" || state.status === "lost" ? (
         <Box flexDirection="column" flexGrow={1}>

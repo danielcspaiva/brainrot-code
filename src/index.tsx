@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { render, Box, Text, useInput, useApp } from "ink";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useClaudeCode } from "./use-claude-code.js";
 import { useRalphLoopWithClaudeOutput } from "./use-ralph-loop.js";
 import { Layout, useTerminalSize } from "./Layout.js";
@@ -9,7 +9,7 @@ import { LogViewer } from "./LogViewer.js";
 import { GameSelector } from "./GameSelector.js";
 import { getGameList, getGameById } from "./games/index.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
-import type { GameDimensions } from "./game-types.js";
+import type { GameDimensions, LoopAttention } from "./game-types.js";
 
 type GameAreaMode = "menu" | "logs" | "game";
 
@@ -17,10 +17,12 @@ interface GameAreaProps {
   logs: ClaudeCodeOutput[];
   hasFocus: boolean;
   dimensions: GameDimensions;
+  loopAttention: LoopAttention;
+  onLoopAlertDismiss: () => void;
 }
 
 /** Game area with mode switching between menu, logs, and active game */
-function GameArea({ logs, hasFocus, dimensions }: GameAreaProps) {
+function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismiss }: GameAreaProps) {
   const [mode, setMode] = useState<GameAreaMode>("menu");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
@@ -80,6 +82,8 @@ function GameArea({ logs, hasFocus, dimensions }: GameAreaProps) {
           hasFocus={hasFocus}
           dimensions={dimensions}
           onExit={handleExitGame}
+          loopAttention={loopAttention}
+          onLoopAlertDismiss={onLoopAlertDismiss}
         />
       );
     }
@@ -127,6 +131,7 @@ function App() {
   const { exit } = useApp();
   const { status, output, spawn, stop } = useClaudeCode();
   const [focusedPane, setFocusedPane] = useState<0 | 1>(0);
+  const [loopAlertDismissed, setLoopAlertDismissed] = useState(false);
   const terminalSize = useTerminalSize();
 
   // Use Ralph loop parsing for the output
@@ -139,6 +144,26 @@ function App() {
     const availableWidth = Math.max(Math.floor(terminalSize.width * 0.5) - 4, 20);
     return { width: availableWidth, height: availableHeight };
   }, [terminalSize.width, terminalSize.height]);
+
+  // Create loop attention object for games
+  const loopAttention = useMemo(() => ({
+    needsAttention: ralphLoop.needsAttention && !loopAlertDismissed,
+    reason: ralphLoop.state.userAttention.reason,
+    type: ralphLoop.state.userAttention.type,
+    prompt: ralphLoop.state.userAttention.prompt,
+  }), [ralphLoop.needsAttention, ralphLoop.state.userAttention, loopAlertDismissed]);
+
+  // Reset dismiss state when attention changes
+  const handleLoopAlertDismiss = useCallback(() => {
+    setLoopAlertDismissed(true);
+  }, []);
+
+  // Reset dismiss state when a new attention request comes in
+  useEffect(() => {
+    if (ralphLoop.needsAttention) {
+      setLoopAlertDismissed(false);
+    }
+  }, [ralphLoop.needsAttention, ralphLoop.state.userAttention.reason, ralphLoop.state.userAttention.prompt]);
 
   useInput((input, key) => {
     if (key.ctrl && input === "c") {
@@ -170,6 +195,8 @@ function App() {
           logs={output}
           hasFocus={focusedPane === 0}
           dimensions={gameDimensions}
+          loopAttention={loopAttention}
+          onLoopAlertDismiss={handleLoopAlertDismiss}
         />
       }
       managementArea={

@@ -11,6 +11,7 @@ import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { useHighScores } from "../use-high-scores.js";
 import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
+import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 
 /** Tetris game metadata */
 export const tetrisGameInfo: GameInfo = {
@@ -515,14 +516,37 @@ function GameHUD({
 /**
  * Tetris game component
  */
-export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
+export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
   const [state, setState] = useState<TetrisState>(() => createInitialState());
   const lastDropTime = useRef(0);
   const clearAnimTimer = useRef(0);
   const scoreSubmittedRef = useRef(false);
+  const [showLoopAlert, setShowLoopAlert] = useState(false);
+  const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
   // High score persistence
   const { highScore, leaderboard, submitScore } = useHighScores("tetris");
+
+  // Auto-pause when loop needs attention
+  useEffect(() => {
+    if (loopAttention?.needsAttention && state.status === "playing") {
+      setWasPlayingBeforeAlert(true);
+      setShowLoopAlert(true);
+      setState((prev) => ({ ...prev, status: "paused" }));
+    } else if (!loopAttention?.needsAttention && showLoopAlert) {
+      setShowLoopAlert(false);
+      // Auto-resume if we were playing before the alert
+      if (wasPlayingBeforeAlert) {
+        setState((prev) => {
+          if (prev.status === "paused") {
+            return { ...prev, status: "playing" };
+          }
+          return prev;
+        });
+        setWasPlayingBeforeAlert(false);
+      }
+    }
+  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
 
   // Submit score when game ends
   useEffect(() => {
@@ -803,8 +827,20 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
         return;
       }
 
+      // Dismiss loop alert with Enter key
+      if (key.return && showLoopAlert) {
+        setShowLoopAlert(false);
+        onLoopAlertDismiss?.();
+        return;
+      }
+
       // Pause
       if (input === "p" || input === "P") {
+        // If we're showing loop alert, dismiss it and resume
+        if (showLoopAlert) {
+          setShowLoopAlert(false);
+          setWasPlayingBeforeAlert(false);
+        }
         setState((prev) => ({
           ...prev,
           status: prev.status === "playing" ? "paused" : "playing",
@@ -847,6 +883,10 @@ export function TetrisGame({ hasFocus, onExit }: GameComponentProps) {
             score={state.score}
             leaderboardPosition={state.leaderboardPosition}
           />
+        </Box>
+      ) : state.status === "paused" && showLoopAlert && loopAttention ? (
+        <Box flexGrow={1} justifyContent="center" alignItems="center">
+          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
         </Box>
       ) : state.status === "paused" ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">

@@ -18,6 +18,7 @@ import {
 import { useGameLoop } from "../use-game-loop.js";
 import { useHighScores } from "../use-high-scores.js";
 import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
+import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 
 /** Snake game metadata */
 export const snakeGameInfo: GameInfo = {
@@ -240,7 +241,7 @@ function GameHUD({
 /**
  * Snake game component
  */
-export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) {
+export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss }: GameComponentProps) {
   // Calculate game board size (leaving room for HUD and controls)
   const boardWidth = Math.max(dimensions.width - 2, 15);
   const boardHeight = Math.max(dimensions.height - 5, 8);
@@ -251,9 +252,32 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
 
   const [lastMoveTime, setLastMoveTime] = useState(0);
   const scoreSubmittedRef = useRef(false);
+  const [showLoopAlert, setShowLoopAlert] = useState(false);
+  const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
   // High score persistence
   const { highScore, leaderboard, submitScore } = useHighScores("snake");
+
+  // Auto-pause when loop needs attention
+  useEffect(() => {
+    if (loopAttention?.needsAttention && state.status === "playing") {
+      setWasPlayingBeforeAlert(true);
+      setShowLoopAlert(true);
+      setState((prev) => ({ ...prev, status: "paused" }));
+    } else if (!loopAttention?.needsAttention && showLoopAlert) {
+      setShowLoopAlert(false);
+      // Auto-resume if we were playing before the alert
+      if (wasPlayingBeforeAlert) {
+        setState((prev) => {
+          if (prev.status === "paused") {
+            return { ...prev, status: "playing" };
+          }
+          return prev;
+        });
+        setWasPlayingBeforeAlert(false);
+      }
+    }
+  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
 
   // Reset game when dimensions change significantly
   useEffect(() => {
@@ -370,8 +394,20 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
         return;
       }
 
+      // Dismiss loop alert with Enter key
+      if (key.return && showLoopAlert) {
+        setShowLoopAlert(false);
+        onLoopAlertDismiss?.();
+        return;
+      }
+
       // Pause/unpause
       if (input === "p" || input === "P") {
+        // If we're showing loop alert, dismiss it and resume
+        if (showLoopAlert) {
+          setShowLoopAlert(false);
+          setWasPlayingBeforeAlert(false);
+        }
         setState((prev) => ({
           ...prev,
           status: prev.status === "playing" ? "paused" : "playing",
@@ -427,6 +463,8 @@ export function SnakeGame({ hasFocus, dimensions, onExit }: GameComponentProps) 
             score={state.score}
             leaderboardPosition={state.leaderboardPosition}
           />
+        ) : state.status === "paused" && showLoopAlert && loopAttention ? (
+          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
         ) : state.status === "paused" ? (
           <PausedOverlay />
         ) : (
