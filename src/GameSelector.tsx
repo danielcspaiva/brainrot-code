@@ -23,6 +23,8 @@ export interface GameSelectorProps {
   onSelectGame: (gameId: string) => void;
   /** Callback when stats menu is requested */
   onOpenStats?: () => void;
+  /** Whether games are enabled (unlocked after loop start) */
+  gamesEnabled?: boolean;
 }
 
 interface GameCardProps {
@@ -30,12 +32,33 @@ interface GameCardProps {
   isSelected: boolean;
   isHighlighted: boolean;
   dimensions: GameDimensions;
+  isDisabled?: boolean;
 }
 
-function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps) {
+function GameCard({
+  game,
+  isSelected,
+  isHighlighted,
+  dimensions,
+  isDisabled = false,
+}: GameCardProps) {
   const colors = useThemeColors();
-  const borderColor = isHighlighted ? colors.primary : isSelected ? colors.accent : colors.border;
-  const titleColor = isHighlighted ? colors.primary : isSelected ? colors.accent : colors.text;
+
+  // When disabled, use muted colors; otherwise use normal highlight colors
+  const borderColor = isDisabled
+    ? colors.border
+    : isHighlighted
+      ? colors.primary
+      : isSelected
+        ? colors.accent
+        : colors.border;
+  const titleColor = isDisabled
+    ? colors.textMuted
+    : isHighlighted
+      ? colors.primary
+      : isSelected
+        ? colors.accent
+        : colors.text;
 
   // Calculate card width based on available space
   const cardWidth = Math.min(Math.max(dimensions.width - 4, 30), 50);
@@ -51,6 +74,7 @@ function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps
       <Box>
         <Text bold color={titleColor}>
           {isHighlighted ? `${navIcons.arrowRight} ` : "  "}
+          {isDisabled ? "🔒 " : ""}
           {game.name}
         </Text>
       </Box>
@@ -92,7 +116,11 @@ interface StatsMenuCardProps {
   achievementCount: { unlocked: number; total: number };
 }
 
-function StatsMenuCard({ isHighlighted, dimensions, achievementCount }: StatsMenuCardProps) {
+function StatsMenuCard({
+  isHighlighted,
+  dimensions,
+  achievementCount,
+}: StatsMenuCardProps) {
   const colors = useThemeColors();
   const borderColor = isHighlighted ? colors.warning : colors.border;
   const titleColor = isHighlighted ? colors.warning : colors.textMuted;
@@ -144,9 +172,15 @@ export function GameSelector({
   dimensions,
   onSelectGame,
   onOpenStats,
+  gamesEnabled = true,
 }: GameSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [achievementCount, setAchievementCount] = useState({ unlocked: 0, total: 0 });
+  const [achievementCount, setAchievementCount] = useState({
+    unlocked: 0,
+    total: 0,
+  });
+  const [showLockedMessage, setShowLockedMessage] = useState(false);
+  const colors = useThemeColors();
 
   // Total items: games + stats menu
   const totalItems = games.length + 1;
@@ -161,13 +195,37 @@ export function GameSelector({
     void loadCount();
   }, []);
 
+  // Clear the locked message after a timeout
+  useEffect(() => {
+    if (showLockedMessage) {
+      const timer = setTimeout(() => {
+        setShowLockedMessage(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [showLockedMessage]);
+
   const handleSelect = useCallback(() => {
     if (selectedIndex === statsIndex) {
+      // Stats is always accessible
       onOpenStats?.();
     } else if (games.length > 0 && games[selectedIndex]) {
+      // Check if games are enabled
+      if (!gamesEnabled) {
+        setShowLockedMessage(true);
+        return;
+      }
       onSelectGame(games[selectedIndex].id);
     }
-  }, [games, selectedIndex, onSelectGame, onOpenStats, statsIndex]);
+  }, [
+    games,
+    selectedIndex,
+    onSelectGame,
+    onOpenStats,
+    statsIndex,
+    gamesEnabled,
+  ]);
 
   useInput(
     (input, key) => {
@@ -202,6 +260,11 @@ export function GameSelector({
       if (!isNaN(num) && num >= 1 && num <= games.length) {
         setSelectedIndex(num - 1);
         if (games[num - 1]) {
+          // Check if games are enabled before quick-selecting
+          if (!gamesEnabled) {
+            setShowLockedMessage(true);
+            return;
+          }
           onSelectGame(games[num - 1].id);
         }
         return;
@@ -219,6 +282,13 @@ export function GameSelector({
     <Box flexDirection="column" padding={1} height="100%">
       <SelectorHeader hasFocus={hasFocus} />
 
+      {/* Locked message notification */}
+      {showLockedMessage && (
+        <Box marginBottom={1} paddingX={1}>
+          <Text color={colors.warning}>🔒 Start a loop to unlock games!</Text>
+        </Box>
+      )}
+
       {games.length === 0 ? (
         <EmptyState />
       ) : (
@@ -230,6 +300,7 @@ export function GameSelector({
               isSelected={index === selectedIndex}
               isHighlighted={hasFocus && index === selectedIndex}
               dimensions={dimensions}
+              isDisabled={!gamesEnabled}
             />
           ))}
 

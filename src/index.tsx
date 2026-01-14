@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 import { render, Box, Text, useInput, useApp } from "ink";
-import { useState, useCallback, useMemo, useEffect, createContext, useContext } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  createContext,
+  useContext,
+} from "react";
 import { useClaudeCode } from "./use-claude-code.js";
 import { useRalphLoopWithClaudeOutput } from "./use-ralph-loop.js";
 import { Layout, useTerminalSize } from "./Layout.js";
@@ -12,22 +19,45 @@ import { StatsMenu } from "./StatsMenu.js";
 import { useAchievementNotifications } from "./AchievementNotification.js";
 import { getGameList, getGameById } from "./games/index.js";
 import { useConfig } from "./use-config.js";
-import { getLayoutOptions, getClaudeCodeOptions, deepMerge, saveConfig, type BrainrotConfig } from "./config.js";
+import {
+  getLayoutOptions,
+  getClaudeCodeOptions,
+  deepMerge,
+  saveConfig,
+  type BrainrotConfig,
+} from "./config.js";
 import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import { recordSessionStart } from "./stats.js";
 import { useLoopState, useLoopStateExists } from "./use-loop-state.js";
 import { OnboardingTutorial } from "./OnboardingTutorial.js";
 import { ResumeOverlay, type ResumeAction } from "./ResumeOverlay.js";
 import { FeaturePromptScreen } from "./FeaturePromptScreen.js";
-import { DynamicInterviewFlow, type InterviewResult } from "./DynamicInterviewFlow.js";
-import { PrdGenerationScreen, type GeneratedPrd } from "./PrdGenerationScreen.js";
+import {
+  DynamicInterviewFlow,
+  type InterviewResult,
+} from "./DynamicInterviewFlow.js";
+import {
+  PrdGenerationScreen,
+  type GeneratedPrd,
+} from "./PrdGenerationScreen.js";
 import { TaskBreakdownScreen } from "./TaskBreakdownScreen.js";
 import { PreStartReviewScreen } from "./PreStartReviewScreen.js";
 import { PrdOverlay, type PrdOverlayAction } from "./PrdOverlay.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
-import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
+import type {
+  GameDimensions,
+  LoopAttention,
+  GameStateUpdate,
+} from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
-import { StatusBar, GameStatusProvider, useGameStatus, LoopInfoProvider, useLoopInfo, type HotkeyContext } from "./StatusBar.js";
+import {
+  StatusBar,
+  GameStatusProvider,
+  useGameStatus,
+  LoopInfoProvider,
+  useLoopInfo,
+  type HotkeyContext,
+} from "./StatusBar.js";
 import { HelpOverlay } from "./HelpOverlay.js";
 
 // ============================================================================
@@ -59,6 +89,7 @@ interface GameAreaProps {
   onConfigSave: () => Promise<void>;
   onAchievementUnlock: (ids: string[]) => void;
   onGameStateChange: (update: GameStateUpdate) => void;
+  gamesEnabled: boolean;
 }
 
 /** Game area with mode switching between menu, logs, settings, stats, and active game */
@@ -73,6 +104,7 @@ function GameArea({
   onConfigSave,
   onAchievementUnlock: _onAchievementUnlock,
   onGameStateChange,
+  gamesEnabled,
 }: GameAreaProps) {
   const [mode, setMode] = useState<GameAreaMode>("menu");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -81,15 +113,18 @@ function GameArea({
 
   const games = useMemo(() => getGameList(), []);
 
-  const handleSelectGame = useCallback((gameId: string) => {
-    setSelectedGameId(gameId);
-    setMode("game");
-    // Set game name in status bar
-    const gameInfo = getGameById(gameId);
-    if (gameInfo) {
-      setGameState({ gameId, gameName: gameInfo.info.name });
-    }
-  }, [setGameState]);
+  const handleSelectGame = useCallback(
+    (gameId: string) => {
+      setSelectedGameId(gameId);
+      setMode("game");
+      // Set game name in status bar
+      const gameInfo = getGameById(gameId);
+      if (gameInfo) {
+        setGameState({ gameId, gameName: gameInfo.info.name });
+      }
+    },
+    [setGameState]
+  );
 
   const handleExitGame = useCallback(() => {
     setSelectedGameId(null);
@@ -122,7 +157,12 @@ function GameArea({
       }
 
       // 'L' to switch to logs view
-      if ((input === "l" || input === "L") && mode !== "game" && mode !== "settings" && mode !== "stats") {
+      if (
+        (input === "l" || input === "L") &&
+        mode !== "game" &&
+        mode !== "settings" &&
+        mode !== "stats"
+      ) {
         setMode(mode === "logs" ? "menu" : "logs");
         return;
       }
@@ -133,7 +173,10 @@ function GameArea({
         return;
       }
     },
-    { isActive: hasFocus && mode !== "game" && mode !== "settings" && mode !== "stats" }
+    {
+      isActive:
+        hasFocus && mode !== "game" && mode !== "settings" && mode !== "stats",
+    }
   );
 
   // Render based on current mode
@@ -146,7 +189,11 @@ function GameArea({
           </Text>
           <Text dimColor> | L: Back to Games | Q: Menu</Text>
         </Box>
-        <LogViewer logs={logs} hasFocus={hasFocus} initialViewMode="condensed" />
+        <LogViewer
+          logs={logs}
+          hasFocus={hasFocus}
+          initialViewMode="condensed"
+        />
       </Box>
     );
   }
@@ -164,12 +211,7 @@ function GameArea({
   }
 
   if (mode === "stats") {
-    return (
-      <StatsMenu
-        hasFocus={hasFocus}
-        onClose={handleCloseStats}
-      />
-    );
+    return <StatsMenu hasFocus={hasFocus} onClose={handleCloseStats} />;
   }
 
   if (mode === "game" && selectedGameId) {
@@ -198,6 +240,7 @@ function GameArea({
         dimensions={dimensions}
         onSelectGame={handleSelectGame}
         onOpenStats={handleOpenStats}
+        gamesEnabled={gamesEnabled}
       />
       <Box paddingX={1}>
         <Text dimColor>L: View Logs | Ctrl+,: Settings</Text>
@@ -244,10 +287,13 @@ function AppContent() {
   const { exit } = useApp();
   const { config: fileConfig } = useConfig();
   const cliOverrides = useCLIOverrides();
-  const { addAchievements, NotificationComponent, hasNotifications } = useAchievementNotifications();
+  const { addAchievements, NotificationComponent, hasNotifications } =
+    useAchievementNotifications();
 
   // Local config state for live preview (before saving)
-  const [localConfigOverrides, setLocalConfigOverrides] = useState<Partial<BrainrotConfig>>({});
+  const [localConfigOverrides, setLocalConfigOverrides] = useState<
+    Partial<BrainrotConfig>
+  >({});
 
   // Record session start on mount
   useEffect(() => {
@@ -276,7 +322,10 @@ function AppContent() {
 
   // Get config-derived options
   const layoutOptions = useMemo(() => getLayoutOptions(config), [config]);
-  const claudeCodeOptions = useMemo(() => getClaudeCodeOptions(config), [config]);
+  const claudeCodeOptions = useMemo(
+    () => getClaudeCodeOptions(config),
+    [config]
+  );
 
   const { status, output, spawn, stop } = useClaudeCode(claudeCodeOptions);
   const [focusedPane, setFocusedPane] = useState<0 | 1>(0);
@@ -292,13 +341,16 @@ function AppContent() {
   const [showPrdGeneration, setShowPrdGeneration] = useState(false);
   const [showTaskBreakdown, setShowTaskBreakdown] = useState(false);
   const [showPreStartReview, setShowPreStartReview] = useState(false);
-  const [currentInterviewResult, setCurrentInterviewResult] = useState<InterviewResult | null>(null);
-  const [currentGeneratedPrd, setCurrentGeneratedPrd] = useState<GeneratedPrd | null>(null);
+  const [currentInterviewResult, setCurrentInterviewResult] =
+    useState<InterviewResult | null>(null);
+  const [currentGeneratedPrd, setCurrentGeneratedPrd] =
+    useState<GeneratedPrd | null>(null);
   const [showPrdOverlay, setShowPrdOverlay] = useState(false);
   const terminalSize = useTerminalSize();
 
   // Check if this is a first-time user (no existing loop state)
-  const { exists: loopStateExists, isChecking: isCheckingLoopState } = useLoopStateExists();
+  const { exists: loopStateExists, isChecking: isCheckingLoopState } =
+    useLoopStateExists();
 
   // Use loop state persistence - loads on startup and auto-saves changes
   const loopState = useLoopState();
@@ -307,7 +359,11 @@ function AppContent() {
   // Show resume overlay for returning users with existing loop state
   useEffect(() => {
     // Only trigger after we've checked loop state existence
-    if (!isCheckingLoopState && !onboardingCompleted && !resumeOverlayDismissed) {
+    if (
+      !isCheckingLoopState &&
+      !onboardingCompleted &&
+      !resumeOverlayDismissed
+    ) {
       if (loopStateExists === false) {
         // First-time user: show onboarding
         setShowOnboarding(true);
@@ -316,7 +372,13 @@ function AppContent() {
         setShowResumeOverlay(true);
       }
     }
-  }, [isCheckingLoopState, loopStateExists, onboardingCompleted, resumeOverlayDismissed, loopState.hasLoop]);
+  }, [
+    isCheckingLoopState,
+    loopStateExists,
+    onboardingCompleted,
+    resumeOverlayDismissed,
+    loopState.hasLoop,
+  ]);
 
   // Handle onboarding completion - show feature prompt next
   const handleOnboardingComplete = useCallback(() => {
@@ -327,19 +389,22 @@ function AppContent() {
   }, []);
 
   // Handle feature prompt completion - show dynamic interview flow next
-  const handleFeaturePromptComplete = useCallback((prompt: string) => {
-    setShowFeaturePrompt(false);
-    setFeaturePromptText(prompt);
-    // Store the feature prompt in loop state
-    if (prompt) {
-      loopState.state.prd = {
-        name: prompt,
-        description: prompt,
-      };
-    }
-    // Show dynamic interview flow next
-    setShowInterviewFlow(true);
-  }, [loopState.state]);
+  const handleFeaturePromptComplete = useCallback(
+    (prompt: string) => {
+      setShowFeaturePrompt(false);
+      setFeaturePromptText(prompt);
+      // Store the feature prompt in loop state
+      if (prompt) {
+        loopState.state.prd = {
+          name: prompt,
+          description: prompt,
+        };
+      }
+      // Show dynamic interview flow next
+      setShowInterviewFlow(true);
+    },
+    [loopState.state]
+  );
 
   // Handle interview flow completion - trigger PRD generation
   const handleInterviewComplete = useCallback((result: InterviewResult) => {
@@ -350,13 +415,16 @@ function AppContent() {
   }, []);
 
   // Handle PRD generation completion - show task breakdown screen
-  const handlePrdGenerationComplete = useCallback((generatedPrd: GeneratedPrd) => {
-    setShowPrdGeneration(false);
-    // Store the generated PRD for display in task breakdown screen
-    setCurrentGeneratedPrd(generatedPrd);
-    // Show task breakdown screen
-    setShowTaskBreakdown(true);
-  }, []);
+  const handlePrdGenerationComplete = useCallback(
+    (generatedPrd: GeneratedPrd) => {
+      setShowPrdGeneration(false);
+      // Store the generated PRD for display in task breakdown screen
+      setCurrentGeneratedPrd(generatedPrd);
+      // Show task breakdown screen
+      setShowTaskBreakdown(true);
+    },
+    []
+  );
 
   // Handle task breakdown screen continue - show pre-start review screen
   const handleTaskBreakdownContinue = useCallback(() => {
@@ -420,25 +488,28 @@ function AppContent() {
   }, []);
 
   // Handle resume overlay action selection
-  const handleResumeAction = useCallback((action: ResumeAction) => {
-    setShowResumeOverlay(false);
-    setResumeOverlayDismissed(true);
+  const handleResumeAction = useCallback(
+    (action: ResumeAction) => {
+      setShowResumeOverlay(false);
+      setResumeOverlayDismissed(true);
 
-    switch (action) {
-      case "resume":
-        // Resume the previous loop - just dismiss the overlay
-        // The loop state is already loaded
-        break;
-      case "new":
-        // Start a new loop - clear the existing state
-        loopState.clear();
-        break;
-      case "history":
-        // View history - for now, dismiss and let user navigate to stats
-        // In a more complete implementation, this could open a history view
-        break;
-    }
-  }, [loopState]);
+      switch (action) {
+        case "resume":
+          // Resume the previous loop - just dismiss the overlay
+          // The loop state is already loaded
+          break;
+        case "new":
+          // Start a new loop - clear the existing state
+          loopState.clear();
+          break;
+        case "history":
+          // View history - for now, dismiss and let user navigate to stats
+          // In a more complete implementation, this could open a history view
+          break;
+      }
+    },
+    [loopState]
+  );
 
   // Use Ralph loop parsing for the output
   const ralphLoop = useRalphLoopWithClaudeOutput(output);
@@ -471,17 +542,27 @@ function AppContent() {
   const gameDimensions = useMemo(() => {
     // Account for header (3), footer (2), help (1), borders, and split pane divider
     const availableHeight = Math.max(terminalSize.height - 8, 10);
-    const availableWidth = Math.max(Math.floor(terminalSize.width * 0.5) - 4, 20);
+    const availableWidth = Math.max(
+      Math.floor(terminalSize.width * 0.5) - 4,
+      20
+    );
     return { width: availableWidth, height: availableHeight };
   }, [terminalSize.width, terminalSize.height]);
 
   // Create loop attention object for games
-  const loopAttention = useMemo(() => ({
-    needsAttention: ralphLoop.needsAttention && !loopAlertDismissed,
-    reason: ralphLoop.state.userAttention.reason,
-    type: ralphLoop.state.userAttention.type,
-    prompt: ralphLoop.state.userAttention.prompt,
-  }), [ralphLoop.needsAttention, ralphLoop.state.userAttention, loopAlertDismissed]);
+  const loopAttention = useMemo(
+    () => ({
+      needsAttention: ralphLoop.needsAttention && !loopAlertDismissed,
+      reason: ralphLoop.state.userAttention.reason,
+      type: ralphLoop.state.userAttention.type,
+      prompt: ralphLoop.state.userAttention.prompt,
+    }),
+    [
+      ralphLoop.needsAttention,
+      ralphLoop.state.userAttention,
+      loopAlertDismissed,
+    ]
+  );
 
   // Reset dismiss state when attention changes
   const handleLoopAlertDismiss = useCallback(() => {
@@ -509,29 +590,36 @@ function AppContent() {
   }, []);
 
   // Handle PRD overlay action
-  const handlePrdOverlayAction = useCallback((action: PrdOverlayAction) => {
-    setShowPrdOverlay(false);
-    switch (action) {
-      case "resume":
-        // Resume the loop - just close the overlay
-        break;
-      case "new_loop":
-        // Clear existing loop and start fresh
-        loopState.clear();
-        setShowFeaturePrompt(true);
-        break;
-      case "full_prd":
-        // For now, just close - could open a detailed PRD view in the future
-        break;
-    }
-  }, [loopState]);
+  const handlePrdOverlayAction = useCallback(
+    (action: PrdOverlayAction) => {
+      setShowPrdOverlay(false);
+      switch (action) {
+        case "resume":
+          // Resume the loop - just close the overlay
+          break;
+        case "new_loop":
+          // Clear existing loop and start fresh
+          loopState.clear();
+          setShowFeaturePrompt(true);
+          break;
+        case "full_prd":
+          // For now, just close - could open a detailed PRD view in the future
+          break;
+      }
+    },
+    [loopState]
+  );
 
   // Reset dismiss state when a new attention request comes in
   useEffect(() => {
     if (ralphLoop.needsAttention) {
       setLoopAlertDismissed(false);
     }
-  }, [ralphLoop.needsAttention, ralphLoop.state.userAttention.reason, ralphLoop.state.userAttention.prompt]);
+  }, [
+    ralphLoop.needsAttention,
+    ralphLoop.state.userAttention.reason,
+    ralphLoop.state.userAttention.prompt,
+  ]);
 
   useInput((input, key) => {
     // Ctrl+C always works to exit
@@ -542,7 +630,15 @@ function AppContent() {
 
     // When onboarding, feature prompt, interview flow, PRD generation, task breakdown, pre-start review, or resume overlay is shown, only handle Ctrl+C (above)
     // These components handle their own keyboard input
-    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown || showPreStartReview || showResumeOverlay) {
+    if (
+      showOnboarding ||
+      showFeaturePrompt ||
+      showInterviewFlow ||
+      showPrdGeneration ||
+      showTaskBreakdown ||
+      showPreStartReview ||
+      showResumeOverlay
+    ) {
       return;
     }
 
@@ -593,9 +689,12 @@ function AppContent() {
 
   // Handler for game state updates from games
   const { setGameState } = useGameStatus();
-  const handleGameStateChange = useCallback((update: GameStateUpdate) => {
-    setGameState(update);
-  }, [setGameState]);
+  const handleGameStateChange = useCallback(
+    (update: GameStateUpdate) => {
+      setGameState(update);
+    },
+    [setGameState]
+  );
 
   // Determine effective loop status for status bar
   const effectiveLoopStatus = useMemo(() => {
@@ -606,10 +705,48 @@ function AppContent() {
     return status;
   }, [status, ralphLoop.state.status]);
 
+  // Determine if games are enabled (only after explicit loop start)
+  // Games are disabled during: onboarding, setup wizard, interview, PRD generation, task breakdown, pre-start review
+  // Games are enabled only after explicit loop start (user clicks "Start Loop" on pre-start review)
+  const gamesEnabled = useMemo(() => {
+    // Games are disabled during any setup flow
+    if (
+      showOnboarding ||
+      showFeaturePrompt ||
+      showInterviewFlow ||
+      showPrdGeneration ||
+      showTaskBreakdown ||
+      showPreStartReview ||
+      showResumeOverlay
+    ) {
+      return false;
+    }
+    // Games are enabled only when there's an active loop with tasks
+    // (set by handlePreStartReviewStart or by resuming an existing loop)
+    return loopState.hasLoop && loopState.state.tasks.length > 0;
+  }, [
+    showOnboarding,
+    showFeaturePrompt,
+    showInterviewFlow,
+    showPrdGeneration,
+    showTaskBreakdown,
+    showPreStartReview,
+    showResumeOverlay,
+    loopState.hasLoop,
+    loopState.state.tasks.length,
+  ]);
+
   // Determine current hotkey context for status bar
   const currentHotkeyContext = useMemo((): HotkeyContext => {
     // Interview/onboarding flows take highest priority
-    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown || showPreStartReview) {
+    if (
+      showOnboarding ||
+      showFeaturePrompt ||
+      showInterviewFlow ||
+      showPrdGeneration ||
+      showTaskBreakdown ||
+      showPreStartReview
+    ) {
       return "interview";
     }
     // Overlays/modals
@@ -651,7 +788,10 @@ function AppContent() {
             isVisible={showOnboarding}
             onComplete={handleOnboardingComplete}
             hasFocus={showOnboarding}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+            dimensions={{
+              width: terminalSize.width,
+              height: terminalSize.height,
+            }}
           />
         </Box>
       )}
@@ -670,7 +810,10 @@ function AppContent() {
             onComplete={handleFeaturePromptComplete}
             onBack={handleFeaturePromptBack}
             hasFocus={showFeaturePrompt}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+            dimensions={{
+              width: terminalSize.width,
+              height: terminalSize.height,
+            }}
           />
         </Box>
       )}
@@ -690,127 +833,208 @@ function AppContent() {
             onComplete={handleInterviewComplete}
             onBack={handleInterviewFlowBack}
             hasFocus={showInterviewFlow}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+            dimensions={{
+              width: terminalSize.width,
+              height: terminalSize.height,
+            }}
           />
         </Box>
       )}
       {/* PRD Generation screen - shown after interview flow */}
-      {showPrdGeneration && currentInterviewResult && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && (
-        <Box
-          position="absolute"
-          width={terminalSize.width}
-          height={terminalSize.height}
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <PrdGenerationScreen
-            isVisible={showPrdGeneration}
-            interviewResult={currentInterviewResult}
-            onComplete={handlePrdGenerationComplete}
-            onCancel={handlePrdGenerationCancel}
-            hasFocus={showPrdGeneration}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
-          />
-        </Box>
-      )}
+      {showPrdGeneration &&
+        currentInterviewResult &&
+        !showOnboarding &&
+        !showFeaturePrompt &&
+        !showInterviewFlow && (
+          <Box
+            position="absolute"
+            width={terminalSize.width}
+            height={terminalSize.height}
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <PrdGenerationScreen
+              isVisible={showPrdGeneration}
+              interviewResult={currentInterviewResult}
+              onComplete={handlePrdGenerationComplete}
+              onCancel={handlePrdGenerationCancel}
+              hasFocus={showPrdGeneration}
+              dimensions={{
+                width: terminalSize.width,
+                height: terminalSize.height,
+              }}
+            />
+          </Box>
+        )}
       {/* Task Breakdown screen - shown after PRD generation */}
-      {showTaskBreakdown && currentGeneratedPrd && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && (
-        <Box
-          position="absolute"
-          width={terminalSize.width}
-          height={terminalSize.height}
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <TaskBreakdownScreen
-            isVisible={showTaskBreakdown}
-            tasks={currentGeneratedPrd.taskBreakdown}
-            featureName={currentInterviewResult?.featureDescription ?? loopState.state.prd?.name ?? "Feature"}
-            onContinue={handleTaskBreakdownContinue}
-            hasFocus={showTaskBreakdown}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
-          />
-        </Box>
-      )}
+      {showTaskBreakdown &&
+        currentGeneratedPrd &&
+        !showOnboarding &&
+        !showFeaturePrompt &&
+        !showInterviewFlow &&
+        !showPrdGeneration && (
+          <Box
+            position="absolute"
+            width={terminalSize.width}
+            height={terminalSize.height}
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <TaskBreakdownScreen
+              isVisible={showTaskBreakdown}
+              tasks={currentGeneratedPrd.taskBreakdown}
+              featureName={
+                currentInterviewResult?.featureDescription ??
+                loopState.state.prd?.name ??
+                "Feature"
+              }
+              onContinue={handleTaskBreakdownContinue}
+              hasFocus={showTaskBreakdown}
+              dimensions={{
+                width: terminalSize.width,
+                height: terminalSize.height,
+              }}
+            />
+          </Box>
+        )}
       {/* Pre-Start Review screen - shown after task breakdown for final confirmation */}
-      {showPreStartReview && currentGeneratedPrd && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && (
-        <Box
-          position="absolute"
-          width={terminalSize.width}
-          height={terminalSize.height}
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <PreStartReviewScreen
-            isVisible={showPreStartReview}
-            generatedPrd={currentGeneratedPrd}
-            featureName={currentInterviewResult?.featureDescription ?? loopState.state.prd?.name ?? "Feature"}
-            onStart={handlePreStartReviewStart}
-            onEditTasks={handlePreStartReviewEditTasks}
-            hasFocus={showPreStartReview}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
-          />
-        </Box>
-      )}
+      {showPreStartReview &&
+        currentGeneratedPrd &&
+        !showOnboarding &&
+        !showFeaturePrompt &&
+        !showInterviewFlow &&
+        !showPrdGeneration &&
+        !showTaskBreakdown && (
+          <Box
+            position="absolute"
+            width={terminalSize.width}
+            height={terminalSize.height}
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <PreStartReviewScreen
+              isVisible={showPreStartReview}
+              generatedPrd={currentGeneratedPrd}
+              featureName={
+                currentInterviewResult?.featureDescription ??
+                loopState.state.prd?.name ??
+                "Feature"
+              }
+              onStart={handlePreStartReviewStart}
+              onEditTasks={handlePreStartReviewEditTasks}
+              hasFocus={showPreStartReview}
+              dimensions={{
+                width: terminalSize.width,
+                height: terminalSize.height,
+              }}
+            />
+          </Box>
+        )}
       {/* Resume overlay - full-screen modal for returning users */}
-      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && (
-        <Box
-          position="absolute"
-          width={terminalSize.width}
-          height={terminalSize.height}
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <ResumeOverlay
-            isVisible={showResumeOverlay}
-            loopState={loopState.state}
-            onAction={handleResumeAction}
-            hasFocus={showResumeOverlay}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
-          />
-        </Box>
-      )}
+      {showResumeOverlay &&
+        !showOnboarding &&
+        !showFeaturePrompt &&
+        !showInterviewFlow &&
+        !showPrdGeneration &&
+        !showTaskBreakdown &&
+        !showPreStartReview && (
+          <Box
+            position="absolute"
+            width={terminalSize.width}
+            height={terminalSize.height}
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <ResumeOverlay
+              isVisible={showResumeOverlay}
+              loopState={loopState.state}
+              onAction={handleResumeAction}
+              hasFocus={showResumeOverlay}
+              dimensions={{
+                width: terminalSize.width,
+                height: terminalSize.height,
+              }}
+            />
+          </Box>
+        )}
       {/* PRD overlay - triggered by P key */}
-      {showPrdOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && (
-        <Box
-          position="absolute"
-          width={terminalSize.width}
-          height={terminalSize.height}
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <PrdOverlay
-            isVisible={showPrdOverlay}
-            loopState={loopState.state}
-            onAction={handlePrdOverlayAction}
-            onClose={handleClosePrdOverlay}
-            hasFocus={showPrdOverlay}
-            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
-          />
-        </Box>
-      )}
+      {showPrdOverlay &&
+        !showOnboarding &&
+        !showFeaturePrompt &&
+        !showInterviewFlow &&
+        !showPrdGeneration &&
+        !showTaskBreakdown &&
+        !showPreStartReview &&
+        !showResumeOverlay && (
+          <Box
+            position="absolute"
+            width={terminalSize.width}
+            height={terminalSize.height}
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <PrdOverlay
+              isVisible={showPrdOverlay}
+              loopState={loopState.state}
+              onAction={handlePrdOverlayAction}
+              onClose={handleClosePrdOverlay}
+              hasFocus={showPrdOverlay}
+              dimensions={{
+                width: terminalSize.width,
+                height: terminalSize.height,
+              }}
+            />
+          </Box>
+        )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay && (
-        <Box position="absolute" marginTop={1} marginLeft={2}>
-          <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
-        </Box>
-      )}
+      {showHelpOverlay &&
+        !showOnboarding &&
+        !showFeaturePrompt &&
+        !showInterviewFlow &&
+        !showPrdGeneration &&
+        !showTaskBreakdown &&
+        !showPreStartReview &&
+        !showResumeOverlay &&
+        !showPrdOverlay && (
+          <Box position="absolute" marginTop={1} marginLeft={2}>
+            <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
+          </Box>
+        )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay && (
-        <Box position="absolute" marginTop={3} marginLeft={5}>
-          {NotificationComponent}
-        </Box>
-      )}
+      {hasNotifications &&
+        !showOnboarding &&
+        !showFeaturePrompt &&
+        !showInterviewFlow &&
+        !showPrdGeneration &&
+        !showTaskBreakdown &&
+        !showPreStartReview &&
+        !showResumeOverlay &&
+        !showPrdOverlay && (
+          <Box position="absolute" marginTop={3} marginLeft={5}>
+            {NotificationComponent}
+          </Box>
+        )}
       <Layout
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay}
+            hasFocus={
+              focusedPane === 0 &&
+              !showHelpOverlay &&
+              !showOnboarding &&
+              !showFeaturePrompt &&
+              !showInterviewFlow &&
+              !showPrdGeneration &&
+              !showTaskBreakdown &&
+              !showPreStartReview &&
+              !showResumeOverlay &&
+              !showPrdOverlay
+            }
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -819,6 +1043,7 @@ function AppContent() {
             onConfigSave={handleConfigSave}
             onAchievementUnlock={addAchievements}
             onGameStateChange={handleGameStateChange}
+            gamesEnabled={gamesEnabled}
           />
         }
         managementArea={
@@ -835,9 +1060,25 @@ function AppContent() {
         gameTitle="Games"
         managementTitle="Loop Management"
         header={<Header />}
-        footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} hotkeyContext={currentHotkeyContext} />}
+        footer={
+          <StatusBarFooter
+            loopStatus={effectiveLoopStatus}
+            needsAttention={ralphLoop.needsAttention}
+            hotkeyContext={currentHotkeyContext}
+          />
+        }
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay}
+        handleInput={
+          !showHelpOverlay &&
+          !showOnboarding &&
+          !showFeaturePrompt &&
+          !showInterviewFlow &&
+          !showPrdGeneration &&
+          !showTaskBreakdown &&
+          !showPreStartReview &&
+          !showResumeOverlay &&
+          !showPrdOverlay
+        }
       />
     </ThemeProvider>
   );
