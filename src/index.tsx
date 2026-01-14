@@ -8,6 +8,8 @@ import { LoopManagementPanel } from "./LoopManagementPanel.js";
 import { LogViewer } from "./LogViewer.js";
 import { GameSelector } from "./GameSelector.js";
 import { getGameList, getGameById } from "./games/index.js";
+import { useConfig } from "./use-config.js";
+import { getLayoutOptions, getClaudeCodeOptions } from "./config.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention } from "./game-types.js";
 import { colors } from "./theme.js";
@@ -130,7 +132,13 @@ function Footer() {
 
 function App() {
   const { exit } = useApp();
-  const { status, output, spawn, stop } = useClaudeCode();
+  const { config } = useConfig();
+
+  // Get config-derived options
+  const layoutOptions = useMemo(() => getLayoutOptions(config), [config]);
+  const claudeCodeOptions = useMemo(() => getClaudeCodeOptions(config), [config]);
+
+  const { status, output, spawn, stop } = useClaudeCode(claudeCodeOptions);
   const [focusedPane, setFocusedPane] = useState<0 | 1>(0);
   const [loopAlertDismissed, setLoopAlertDismissed] = useState(false);
   const terminalSize = useTerminalSize();
@@ -215,12 +223,7 @@ function App() {
       managementTitle="Loop Management"
       header={<Header />}
       footer={<Footer />}
-      layoutOptions={{
-        initialDirection: "horizontal",
-        initialSplitRatio: 0.5,
-        minRatio: 0.25,
-        maxRatio: 0.75,
-      }}
+      layoutOptions={layoutOptions}
     />
   );
 }

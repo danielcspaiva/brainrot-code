@@ -3,6 +3,7 @@ import {
   ClaudeCodeProcess,
   type ProcessStatus,
   type ProcessError,
+  type ClaudeCodeSpawnOptions,
   setupProcessCleanup,
 } from "./claude-code-process.js";
 
@@ -10,6 +11,19 @@ export interface ClaudeCodeOutput {
   type: "stdout" | "stderr";
   content: string;
   timestamp: Date;
+}
+
+export interface UseClaudeCodeOptions {
+  /** Path to Claude Code executable */
+  executablePath?: string;
+  /** Default arguments to pass to Claude Code */
+  defaultArgs?: string[];
+  /** Default working directory */
+  workingDirectory?: string;
+  /** Environment variables to pass */
+  environment?: Record<string, string>;
+  /** Timeout for graceful shutdown */
+  shutdownTimeout?: number;
 }
 
 export interface UseClaudeCodeResult {
@@ -23,7 +37,14 @@ export interface UseClaudeCodeResult {
   clearOutput: () => void;
 }
 
-export function useClaudeCode(): UseClaudeCodeResult {
+export function useClaudeCode(options: UseClaudeCodeOptions = {}): UseClaudeCodeResult {
+  const {
+    executablePath,
+    defaultArgs = [],
+    workingDirectory,
+    environment,
+    shutdownTimeout,
+  } = options;
   const processRef = useRef<ClaudeCodeProcess | null>(null);
   const [status, setStatus] = useState<ProcessStatus>("idle");
   const [output, setOutput] = useState<ClaudeCodeOutput[]>([]);
@@ -71,9 +92,16 @@ export function useClaudeCode(): UseClaudeCodeResult {
   const spawn = useCallback((args: string[] = [], cwd?: string) => {
     if (processRef.current) {
       setError(null);
-      processRef.current.spawn(args, cwd);
+      const spawnOptions: ClaudeCodeSpawnOptions = {
+        executablePath,
+        args: [...defaultArgs, ...args],
+        cwd: cwd ?? workingDirectory,
+        env: environment,
+        shutdownTimeout,
+      };
+      processRef.current.spawn(spawnOptions);
     }
-  }, []);
+  }, [executablePath, defaultArgs, workingDirectory, environment, shutdownTimeout]);
 
   const stop = useCallback(async () => {
     if (processRef.current) {

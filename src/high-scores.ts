@@ -2,13 +2,12 @@
  * High Score Persistence System
  *
  * Provides persistent storage for game high scores using the filesystem.
- * Stores scores in the user's home directory under .brainrot-cli/
+ * Stores scores following XDG Base Directory conventions.
  */
 
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { getDataFilePath, ensureDataDir } from "./config.js";
 
 /** Single score entry */
 export interface ScoreEntry {
@@ -33,9 +32,10 @@ interface HighScoresData {
 /** Maximum scores to keep per game */
 const MAX_SCORES_PER_GAME = 10;
 
-/** Data file location */
-const DATA_DIR = join(homedir(), ".brainrot-cli");
-const DATA_FILE = join(DATA_DIR, "high-scores.json");
+/** Get data file path (uses XDG conventions with legacy fallback) */
+function getHighScoresFile(): string {
+  return getDataFilePath("high-scores.json");
+}
 
 /** Current data format version */
 const DATA_VERSION = 1;
@@ -45,11 +45,12 @@ const DATA_VERSION = 1;
  */
 async function loadHighScores(): Promise<HighScoresData> {
   try {
-    if (!existsSync(DATA_FILE)) {
+    const dataFile = getHighScoresFile();
+    if (!existsSync(dataFile)) {
       return createEmptyData();
     }
 
-    const content = await readFile(DATA_FILE, "utf-8");
+    const content = await readFile(dataFile, "utf-8");
     const data = JSON.parse(content) as HighScoresData;
 
     // Validate version
@@ -70,12 +71,11 @@ async function loadHighScores(): Promise<HighScoresData> {
  */
 async function saveHighScores(data: HighScoresData): Promise<void> {
   try {
-    // Ensure directory exists
-    if (!existsSync(DATA_DIR)) {
-      await mkdir(DATA_DIR, { recursive: true });
-    }
+    // Ensure data directory exists
+    await ensureDataDir();
 
-    await writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+    const dataFile = getHighScoresFile();
+    await writeFile(dataFile, JSON.stringify(data, null, 2), "utf-8");
   } catch {
     // Silently fail - high scores are nice to have but not critical
     console.error("Failed to save high scores");

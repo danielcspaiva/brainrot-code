@@ -1,5 +1,18 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+
+export interface ClaudeCodeSpawnOptions {
+  /** Path to Claude Code executable (defaults to 'claude') */
+  executablePath?: string;
+  /** Additional arguments to pass to Claude Code */
+  args?: string[];
+  /** Working directory for Claude Code */
+  cwd?: string;
+  /** Environment variables to merge with process.env */
+  env?: Record<string, string>;
+  /** Timeout for graceful shutdown in milliseconds */
+  shutdownTimeout?: number;
+}
 
 export type ProcessStatus =
   | "idle"
@@ -28,6 +41,7 @@ export class ClaudeCodeProcess extends EventEmitter {
   private childProcess: ChildProcess | null = null;
   private _status: ProcessStatus = "idle";
   private isShuttingDown = false;
+  private _shutdownTimeout = 5000;
 
   get status(): ProcessStatus {
     return this._status;
@@ -40,20 +54,32 @@ export class ClaudeCodeProcess extends EventEmitter {
 
   /**
    * Spawn Claude Code as a child process
-   * @param args Additional arguments to pass to claude
-   * @param cwd Working directory for Claude Code
+   * @param options Spawn options including executable path, args, cwd, and env
    */
-  spawn(args: string[] = [], cwd?: string): void {
+  spawn(options: ClaudeCodeSpawnOptions = {}): void {
     if (this.childProcess) {
       throw new Error("Claude Code process is already running");
     }
 
+    const {
+      executablePath = "claude",
+      args = [],
+      cwd,
+      env,
+      shutdownTimeout = 5000,
+    } = options;
+
+    this._shutdownTimeout = shutdownTimeout;
     this.isShuttingDown = false;
     this.setStatus("starting");
 
-    // Spawn claude with the provided arguments
-    this.childProcess = spawn("claude", args, {
+    // Merge environment variables
+    const processEnv = env ? { ...process.env, ...env } : process.env;
+
+    // Spawn claude with the provided options
+    this.childProcess = nodeSpawn(executablePath, args, {
       cwd,
+      env: processEnv,
       stdio: ["pipe", "pipe", "pipe"],
       // Ensure the process is killed when parent exits
       detached: false,
@@ -138,9 +164,9 @@ export class ClaudeCodeProcess extends EventEmitter {
   /**
    * Gracefully stop the Claude Code process
    * Sends SIGTERM first, then SIGKILL if process doesn't exit within timeout
-   * @param timeout Milliseconds to wait before force killing (default: 5000)
+   * @param timeout Milliseconds to wait before force killing (uses configured timeout if not specified)
    */
-  async stop(timeout = 5000): Promise<void> {
+  async stop(timeout?: number): Promise<void> {
     if (!this.childProcess) {
       return;
     }
@@ -148,12 +174,14 @@ export class ClaudeCodeProcess extends EventEmitter {
     this.isShuttingDown = true;
     this.setStatus("stopping");
 
+    const effectiveTimeout = timeout ?? this._shutdownTimeout;
+
     return new Promise((resolve) => {
       const forceKillTimer = setTimeout(() => {
         if (this.childProcess) {
           this.childProcess.kill("SIGKILL");
         }
-      }, timeout);
+      }, effectiveTimeout);
 
       const cleanup = () => {
         clearTimeout(forceKillTimer);
