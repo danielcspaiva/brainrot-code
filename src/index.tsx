@@ -25,7 +25,7 @@ import { TaskBreakdownScreen } from "./TaskBreakdownScreen.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
-import { StatusBar, GameStatusProvider, useGameStatus } from "./StatusBar.js";
+import { StatusBar, GameStatusProvider, useGameStatus, LoopInfoProvider, useLoopInfo } from "./StatusBar.js";
 import { HelpOverlay } from "./HelpOverlay.js";
 
 // ============================================================================
@@ -423,6 +423,23 @@ function AppContent() {
     }
   }, [ralphLoop.state.status, loopState]);
 
+  // Use loop info context to update status bar
+  const { setLoopInfo } = useLoopInfo();
+
+  // Sync loop state to loop info context for status bar display
+  useEffect(() => {
+    const { tasks, progress, startedAt } = loopState.state;
+
+    // Find the current task (in_progress status)
+    const currentTask = tasks.find((t) => t.status === "in_progress") ?? null;
+
+    setLoopInfo({
+      currentTask,
+      progress: progress.totalTasks > 0 ? progress : null,
+      startedAt: tasks.length > 0 ? startedAt : null,
+    });
+  }, [loopState.state, setLoopInfo]);
+
   // Calculate game area dimensions (accounting for layout chrome)
   const gameDimensions = useMemo(() => {
     // Account for header (3), footer (2), help (1), borders, and split pane divider
@@ -687,11 +704,13 @@ function AppContent() {
   );
 }
 
-/** App wrapper that provides GameStatusProvider context */
+/** App wrapper that provides GameStatusProvider and LoopInfoProvider context */
 function App() {
   return (
     <GameStatusProvider>
-      <AppContent />
+      <LoopInfoProvider>
+        <AppContent />
+      </LoopInfoProvider>
     </GameStatusProvider>
   );
 }
