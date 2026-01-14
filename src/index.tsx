@@ -19,7 +19,7 @@ import { useLoopState, useLoopStateExists } from "./use-loop-state.js";
 import { OnboardingTutorial } from "./OnboardingTutorial.js";
 import { ResumeOverlay, type ResumeAction } from "./ResumeOverlay.js";
 import { FeaturePromptScreen } from "./FeaturePromptScreen.js";
-import { InterviewQuestion } from "./InterviewQuestion.js";
+import { DynamicInterviewFlow, type InterviewResult } from "./DynamicInterviewFlow.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -272,7 +272,8 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [showFeaturePrompt, setShowFeaturePrompt] = useState(false);
-  const [showInterviewQuestion, setShowInterviewQuestion] = useState(false);
+  const [showInterviewFlow, setShowInterviewFlow] = useState(false);
+  const [featurePromptText, setFeaturePromptText] = useState("");
   const [showResumeOverlay, setShowResumeOverlay] = useState(false);
   const [resumeOverlayDismissed, setResumeOverlayDismissed] = useState(false);
   const terminalSize = useTerminalSize();
@@ -306,9 +307,10 @@ function AppContent() {
     setShowFeaturePrompt(true);
   }, []);
 
-  // Handle feature prompt completion - show interview question next
+  // Handle feature prompt completion - show dynamic interview flow next
   const handleFeaturePromptComplete = useCallback((prompt: string) => {
     setShowFeaturePrompt(false);
+    setFeaturePromptText(prompt);
     // Store the feature prompt in loop state
     if (prompt) {
       loopState.state.prd = {
@@ -316,22 +318,23 @@ function AppContent() {
         description: prompt,
       };
     }
-    // Show interview question screen next
-    setShowInterviewQuestion(true);
+    // Show dynamic interview flow next
+    setShowInterviewFlow(true);
   }, [loopState.state]);
 
-  // Handle interview question answer
-  const handleInterviewAnswer = useCallback((answer: string) => {
-    setShowInterviewQuestion(false);
-    // Store the answer in loop state (extend PRD content)
+  // Handle interview flow completion
+  const handleInterviewComplete = useCallback((result: InterviewResult) => {
+    setShowInterviewFlow(false);
+    // Store the interview results in loop state (extend PRD content)
     if (loopState.state.prd) {
-      loopState.state.prd.content = answer;
+      loopState.state.prd.content = result.summary;
+      loopState.state.prd.raw = result;
     }
   }, [loopState.state]);
 
-  // Handle going back from interview question to feature prompt
-  const handleInterviewQuestionBack = useCallback(() => {
-    setShowInterviewQuestion(false);
+  // Handle going back from interview flow to feature prompt
+  const handleInterviewFlowBack = useCallback(() => {
+    setShowInterviewFlow(false);
     setShowFeaturePrompt(true);
   }, []);
 
@@ -418,9 +421,9 @@ function AppContent() {
       return;
     }
 
-    // When onboarding, feature prompt, interview question, or resume overlay is shown, only handle Ctrl+C (above)
+    // When onboarding, feature prompt, interview flow, or resume overlay is shown, only handle Ctrl+C (above)
     // These components handle their own keyboard input
-    if (showOnboarding || showFeaturePrompt || showInterviewQuestion || showResumeOverlay) {
+    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showResumeOverlay) {
       return;
     }
 
@@ -509,8 +512,8 @@ function AppContent() {
           />
         </Box>
       )}
-      {/* Interview question screen - shown after feature prompt */}
-      {showInterviewQuestion && !showOnboarding && !showFeaturePrompt && (
+      {/* Dynamic interview flow - shown after feature prompt */}
+      {showInterviewFlow && !showOnboarding && !showFeaturePrompt && (
         <Box
           position="absolute"
           width={terminalSize.width}
@@ -519,25 +522,18 @@ function AppContent() {
           alignItems="center"
           justifyContent="center"
         >
-          <InterviewQuestion
-            isVisible={showInterviewQuestion}
-            question="What type of project is this?"
-            header="Project Context"
-            options={[
-              { label: "Web application (frontend/fullstack)", value: "web" },
-              { label: "Backend API or service", value: "backend" },
-              { label: "CLI tool or script", value: "cli" },
-              { label: "Mobile app", value: "mobile" },
-            ]}
-            onAnswer={handleInterviewAnswer}
-            onBack={handleInterviewQuestionBack}
-            hasFocus={showInterviewQuestion}
+          <DynamicInterviewFlow
+            isVisible={showInterviewFlow}
+            featureDescription={featurePromptText}
+            onComplete={handleInterviewComplete}
+            onBack={handleInterviewFlowBack}
+            hasFocus={showInterviewFlow}
             dimensions={{ width: terminalSize.width, height: terminalSize.height }}
           />
         </Box>
       )}
       {/* Resume overlay - full-screen modal for returning users */}
-      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && (
+      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && (
         <Box
           position="absolute"
           width={terminalSize.width}
@@ -556,13 +552,13 @@ function AppContent() {
         </Box>
       )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay && (
+      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showResumeOverlay && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay && (
+      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showResumeOverlay && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -571,7 +567,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showResumeOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -598,7 +594,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewQuestion && !showResumeOverlay}
+        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showResumeOverlay}
       />
     </ThemeProvider>
   );
