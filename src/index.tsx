@@ -22,6 +22,7 @@ import { FeaturePromptScreen } from "./FeaturePromptScreen.js";
 import { DynamicInterviewFlow, type InterviewResult } from "./DynamicInterviewFlow.js";
 import { PrdGenerationScreen, type GeneratedPrd } from "./PrdGenerationScreen.js";
 import { TaskBreakdownScreen } from "./TaskBreakdownScreen.js";
+import { PreStartReviewScreen } from "./PreStartReviewScreen.js";
 import { PrdOverlay, type PrdOverlayAction } from "./PrdOverlay.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
@@ -290,6 +291,7 @@ function AppContent() {
   const [resumeOverlayDismissed, setResumeOverlayDismissed] = useState(false);
   const [showPrdGeneration, setShowPrdGeneration] = useState(false);
   const [showTaskBreakdown, setShowTaskBreakdown] = useState(false);
+  const [showPreStartReview, setShowPreStartReview] = useState(false);
   const [currentInterviewResult, setCurrentInterviewResult] = useState<InterviewResult | null>(null);
   const [currentGeneratedPrd, setCurrentGeneratedPrd] = useState<GeneratedPrd | null>(null);
   const [showPrdOverlay, setShowPrdOverlay] = useState(false);
@@ -356,9 +358,16 @@ function AppContent() {
     setShowTaskBreakdown(true);
   }, []);
 
-  // Handle task breakdown screen continue - store PRD and tasks
+  // Handle task breakdown screen continue - show pre-start review screen
   const handleTaskBreakdownContinue = useCallback(() => {
     setShowTaskBreakdown(false);
+    // Show the pre-start review screen for final confirmation
+    setShowPreStartReview(true);
+  }, []);
+
+  // Handle pre-start review screen - start loop
+  const handlePreStartReviewStart = useCallback(() => {
+    setShowPreStartReview(false);
     if (!currentGeneratedPrd) return;
 
     // Store the generated PRD and tasks in loop state
@@ -382,6 +391,13 @@ function AppContent() {
     setCurrentInterviewResult(null);
     setCurrentGeneratedPrd(null);
   }, [loopState, currentInterviewResult, currentGeneratedPrd]);
+
+  // Handle pre-start review screen - edit tasks (go back to task breakdown)
+  const handlePreStartReviewEditTasks = useCallback(() => {
+    setShowPreStartReview(false);
+    // Go back to task breakdown screen to edit tasks
+    setShowTaskBreakdown(true);
+  }, []);
 
   // Handle PRD generation cancellation
   const handlePrdGenerationCancel = useCallback(() => {
@@ -524,9 +540,9 @@ function AppContent() {
       return;
     }
 
-    // When onboarding, feature prompt, interview flow, PRD generation, task breakdown, or resume overlay is shown, only handle Ctrl+C (above)
+    // When onboarding, feature prompt, interview flow, PRD generation, task breakdown, pre-start review, or resume overlay is shown, only handle Ctrl+C (above)
     // These components handle their own keyboard input
-    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown || showResumeOverlay) {
+    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown || showPreStartReview || showResumeOverlay) {
       return;
     }
 
@@ -593,7 +609,7 @@ function AppContent() {
   // Determine current hotkey context for status bar
   const currentHotkeyContext = useMemo((): HotkeyContext => {
     // Interview/onboarding flows take highest priority
-    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown) {
+    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown || showPreStartReview) {
       return "interview";
     }
     // Overlays/modals
@@ -611,6 +627,7 @@ function AppContent() {
     showFeaturePrompt,
     showInterviewFlow,
     showPrdGeneration,
+    showPreStartReview,
     showTaskBreakdown,
     showHelpOverlay,
     showPrdOverlay,
@@ -717,8 +734,29 @@ function AppContent() {
           />
         </Box>
       )}
+      {/* Pre-Start Review screen - shown after task breakdown for final confirmation */}
+      {showPreStartReview && currentGeneratedPrd && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && (
+        <Box
+          position="absolute"
+          width={terminalSize.width}
+          height={terminalSize.height}
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <PreStartReviewScreen
+            isVisible={showPreStartReview}
+            generatedPrd={currentGeneratedPrd}
+            featureName={currentInterviewResult?.featureDescription ?? loopState.state.prd?.name ?? "Feature"}
+            onStart={handlePreStartReviewStart}
+            onEditTasks={handlePreStartReviewEditTasks}
+            hasFocus={showPreStartReview}
+            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+          />
+        </Box>
+      )}
       {/* Resume overlay - full-screen modal for returning users */}
-      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && (
+      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && (
         <Box
           position="absolute"
           width={terminalSize.width}
@@ -737,7 +775,7 @@ function AppContent() {
         </Box>
       )}
       {/* PRD overlay - triggered by P key */}
-      {showPrdOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && (
+      {showPrdOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && (
         <Box
           position="absolute"
           width={terminalSize.width}
@@ -757,13 +795,13 @@ function AppContent() {
         </Box>
       )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay && (
+      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay && (
+      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -772,7 +810,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -799,7 +837,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} hotkeyContext={currentHotkeyContext} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay}
+        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showPreStartReview && !showResumeOverlay && !showPrdOverlay}
       />
     </ThemeProvider>
   );
