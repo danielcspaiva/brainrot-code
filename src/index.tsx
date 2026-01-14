@@ -17,6 +17,7 @@ import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import { recordSessionStart } from "./stats.js";
 import { useLoopState, useLoopStateExists } from "./use-loop-state.js";
 import { OnboardingTutorial } from "./OnboardingTutorial.js";
+import { ResumeOverlay, type ResumeAction } from "./ResumeOverlay.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -268,18 +269,30 @@ function AppContent() {
   const [showHelpOverlay, setShowHelpOverlay] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [showResumeOverlay, setShowResumeOverlay] = useState(false);
+  const [resumeOverlayDismissed, setResumeOverlayDismissed] = useState(false);
   const terminalSize = useTerminalSize();
 
   // Check if this is a first-time user (no existing loop state)
   const { exists: loopStateExists, isChecking: isCheckingLoopState } = useLoopStateExists();
 
+  // Use loop state persistence - loads on startup and auto-saves changes
+  const loopState = useLoopState();
+
   // Show onboarding tutorial for first-time users
+  // Show resume overlay for returning users with existing loop state
   useEffect(() => {
-    // Only trigger after we've checked and it's a first-time user
-    if (!isCheckingLoopState && loopStateExists === false && !onboardingCompleted) {
-      setShowOnboarding(true);
+    // Only trigger after we've checked loop state existence
+    if (!isCheckingLoopState && !onboardingCompleted && !resumeOverlayDismissed) {
+      if (loopStateExists === false) {
+        // First-time user: show onboarding
+        setShowOnboarding(true);
+      } else if (loopStateExists === true && loopState.hasLoop) {
+        // Returning user with previous loop: show resume overlay
+        setShowResumeOverlay(true);
+      }
     }
-  }, [isCheckingLoopState, loopStateExists, onboardingCompleted]);
+  }, [isCheckingLoopState, loopStateExists, onboardingCompleted, resumeOverlayDismissed, loopState.hasLoop]);
 
   // Handle onboarding completion
   const handleOnboardingComplete = useCallback(() => {
@@ -287,11 +300,29 @@ function AppContent() {
     setOnboardingCompleted(true);
   }, []);
 
+  // Handle resume overlay action selection
+  const handleResumeAction = useCallback((action: ResumeAction) => {
+    setShowResumeOverlay(false);
+    setResumeOverlayDismissed(true);
+
+    switch (action) {
+      case "resume":
+        // Resume the previous loop - just dismiss the overlay
+        // The loop state is already loaded
+        break;
+      case "new":
+        // Start a new loop - clear the existing state
+        loopState.clear();
+        break;
+      case "history":
+        // View history - for now, dismiss and let user navigate to stats
+        // In a more complete implementation, this could open a history view
+        break;
+    }
+  }, [loopState]);
+
   // Use Ralph loop parsing for the output
   const ralphLoop = useRalphLoopWithClaudeOutput(output);
-
-  // Use loop state persistence - loads on startup and auto-saves changes
-  const loopState = useLoopState();
 
   // Sync Ralph loop status to persistent state when it changes
   useEffect(() => {
@@ -345,9 +376,9 @@ function AppContent() {
       return;
     }
 
-    // When onboarding is shown, only handle Ctrl+C (above)
-    // The onboarding component handles its own keyboard input
-    if (showOnboarding) {
+    // When onboarding or resume overlay is shown, only handle Ctrl+C (above)
+    // These components handle their own keyboard input
+    if (showOnboarding || showResumeOverlay) {
       return;
     }
 
@@ -417,14 +448,33 @@ function AppContent() {
           />
         </Box>
       )}
+      {/* Resume overlay - full-screen modal for returning users */}
+      {showResumeOverlay && !showOnboarding && (
+        <Box
+          position="absolute"
+          width={terminalSize.width}
+          height={terminalSize.height}
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <ResumeOverlay
+            isVisible={showResumeOverlay}
+            loopState={loopState.state}
+            onAction={handleResumeAction}
+            hasFocus={showResumeOverlay}
+            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+          />
+        </Box>
+      )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && (
+      {showHelpOverlay && !showOnboarding && !showResumeOverlay && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && (
+      {hasNotifications && !showOnboarding && !showResumeOverlay && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -433,7 +483,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showResumeOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -460,7 +510,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding}
+        handleInput={!showHelpOverlay && !showOnboarding && !showResumeOverlay}
       />
     </ThemeProvider>
   );
