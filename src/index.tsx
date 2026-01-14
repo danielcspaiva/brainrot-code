@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import { render, Box, Text, useInput, useApp } from "ink";
 import { useState } from "react";
-import { useClaudeCode, type ClaudeCodeOutput } from "./use-claude-code.js";
+import {
+  useClaudeCode,
+  type ClaudeCodeOutput,
+} from "./use-claude-code.js";
+import type { ProcessError } from "./claude-code-process.js";
+import { Layout } from "./Layout.js";
 
 function StatusIndicator({ status }: { status: string }) {
   const statusColors: Record<string, string> = {
@@ -23,6 +28,93 @@ function StatusIndicator({ status }: { status: string }) {
 function OutputLine({ item }: { item: ClaudeCodeOutput }) {
   const color = item.type === "stderr" ? "red" : "white";
   return <Text color={color}>{item.content}</Text>;
+}
+
+/** Game area placeholder - will be replaced with actual game */
+function GameArea() {
+  return (
+    <Box flexDirection="column" padding={1}>
+      <Text color="yellow">Game Area</Text>
+      <Text dimColor>Games will appear here while Claude Code works.</Text>
+      <Box marginTop={1}>
+        <Text>🎮 Coming soon...</Text>
+      </Box>
+    </Box>
+  );
+}
+
+/** Management area with Claude Code output and controls */
+function ManagementArea({
+  status,
+  output,
+  error,
+  inputBuffer,
+}: {
+  status: string;
+  output: ClaudeCodeOutput[];
+  error: ProcessError | null;
+  inputBuffer: string;
+}) {
+  // Show last 10 lines of output
+  const recentOutput = output.slice(-10);
+
+  return (
+    <Box flexDirection="column" padding={1}>
+      <Box>
+        <StatusIndicator status={status} />
+        <Text> </Text>
+        <Text dimColor>
+          Ctrl+S: {status === "running" ? "Stop" : "Start"}
+        </Text>
+      </Box>
+
+      {error && (
+        <Box marginTop={1}>
+          <Text color="red">Error: {error.message}</Text>
+        </Box>
+      )}
+
+      {recentOutput.length > 0 && (
+        <Box marginTop={1} flexDirection="column">
+          <Text dimColor>── Output ──</Text>
+          {recentOutput.map((item, idx) => (
+            <OutputLine key={idx} item={item} />
+          ))}
+        </Box>
+      )}
+
+      {inputBuffer && (
+        <Box marginTop={1}>
+          <Text>
+            {">"} {inputBuffer}
+            <Text color="cyan">▋</Text>
+          </Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/** Header component */
+function Header() {
+  return (
+    <Box borderStyle="round" borderColor="cyan" paddingX={2}>
+      <Text bold color="cyan">
+        BRAINROT CLI
+      </Text>
+      <Text> - </Text>
+      <Text>Play games while Claude Code works</Text>
+    </Box>
+  );
+}
+
+/** Footer with global controls */
+function Footer() {
+  return (
+    <Box>
+      <Text dimColor>Ctrl+C: Exit</Text>
+    </Box>
+  );
 }
 
 function App() {
@@ -56,59 +148,28 @@ function App() {
     }
   });
 
-  // Show last 10 lines of output
-  const recentOutput = output.slice(-10);
-
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box borderStyle="round" borderColor="cyan" paddingX={2} paddingY={1}>
-        <Text bold color="cyan">
-          BRAINROT CLI
-        </Text>
-        <Text> </Text>
-        <StatusIndicator status={status} />
-      </Box>
-
-      <Box marginTop={1} flexDirection="column">
-        <Text>
-          Welcome to Brainrot CLI - your terminal companion for Claude Code
-        </Text>
-      </Box>
-
-      {error && (
-        <Box marginTop={1} borderStyle="single" borderColor="red" paddingX={1}>
-          <Text color="red">Error: {error.message}</Text>
-        </Box>
-      )}
-
-      {recentOutput.length > 0 && (
-        <Box
-          marginTop={1}
-          flexDirection="column"
-          borderStyle="single"
-          borderColor="gray"
-          paddingX={1}
-        >
-          <Text dimColor>── Output ──</Text>
-          {recentOutput.map((item, idx) => (
-            <OutputLine key={idx} item={item} />
-          ))}
-        </Box>
-      )}
-
-      <Box marginTop={1} flexDirection="column">
-        <Text dimColor>
-          Ctrl+S: {status === "running" ? "Stop" : "Start"} Claude Code | Ctrl+C:
-          Exit
-        </Text>
-        {inputBuffer && (
-          <Text>
-            {">"} {inputBuffer}
-            <Text color="cyan">▋</Text>
-          </Text>
-        )}
-      </Box>
-    </Box>
+    <Layout
+      gameArea={<GameArea />}
+      managementArea={
+        <ManagementArea
+          status={status}
+          output={output}
+          error={error}
+          inputBuffer={inputBuffer}
+        />
+      }
+      gameTitle="Game"
+      managementTitle="Claude Code"
+      header={<Header />}
+      footer={<Footer />}
+      layoutOptions={{
+        initialDirection: "horizontal",
+        initialSplitRatio: 0.5,
+        minRatio: 0.25,
+        maxRatio: 0.75,
+      }}
+    />
   );
 }
 
