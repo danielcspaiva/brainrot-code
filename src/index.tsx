@@ -15,7 +15,8 @@ import { useConfig } from "./use-config.js";
 import { getLayoutOptions, getClaudeCodeOptions, deepMerge, saveConfig, type BrainrotConfig } from "./config.js";
 import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import { recordSessionStart } from "./stats.js";
-import { useLoopState } from "./use-loop-state.js";
+import { useLoopState, useLoopStateExists } from "./use-loop-state.js";
+import { OnboardingTutorial } from "./OnboardingTutorial.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -265,7 +266,26 @@ function AppContent() {
   const [focusedPane, setFocusedPane] = useState<0 | 1>(0);
   const [loopAlertDismissed, setLoopAlertDismissed] = useState(false);
   const [showHelpOverlay, setShowHelpOverlay] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const terminalSize = useTerminalSize();
+
+  // Check if this is a first-time user (no existing loop state)
+  const { exists: loopStateExists, isChecking: isCheckingLoopState } = useLoopStateExists();
+
+  // Show onboarding tutorial for first-time users
+  useEffect(() => {
+    // Only trigger after we've checked and it's a first-time user
+    if (!isCheckingLoopState && loopStateExists === false && !onboardingCompleted) {
+      setShowOnboarding(true);
+    }
+  }, [isCheckingLoopState, loopStateExists, onboardingCompleted]);
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+    setOnboardingCompleted(true);
+  }, []);
 
   // Use Ralph loop parsing for the output
   const ralphLoop = useRalphLoopWithClaudeOutput(output);
@@ -325,6 +345,12 @@ function AppContent() {
       return;
     }
 
+    // When onboarding is shown, only handle Ctrl+C (above)
+    // The onboarding component handles its own keyboard input
+    if (showOnboarding) {
+      return;
+    }
+
     // Help overlay toggle with ? key (works globally)
     if (input === "?") {
       handleToggleHelp();
@@ -373,14 +399,32 @@ function AppContent() {
 
   return (
     <ThemeProvider config={config}>
+      {/* Onboarding tutorial - full-screen modal for first-time users */}
+      {showOnboarding && (
+        <Box
+          position="absolute"
+          width={terminalSize.width}
+          height={terminalSize.height}
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <OnboardingTutorial
+            isVisible={showOnboarding}
+            onComplete={handleOnboardingComplete}
+            hasFocus={showOnboarding}
+            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+          />
+        </Box>
+      )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && (
+      {showHelpOverlay && !showOnboarding && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && (
+      {hasNotifications && !showOnboarding && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -389,7 +433,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -416,7 +460,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay}
+        handleInput={!showHelpOverlay && !showOnboarding}
       />
     </ThemeProvider>
   );
