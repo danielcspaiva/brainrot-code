@@ -8,6 +8,7 @@ import type { GameRegistryEntry, GameInfo } from "../game-types.js";
 import { SnakeGame, snakeGameInfo } from "./SnakeGame.js";
 import { PongGame, pongGameInfo } from "./PongGame.js";
 import { TetrisGame, tetrisGameInfo } from "./TetrisGame.js";
+import { MinesweeperGame, minesweeperGameInfo } from "./MinesweeperGame.js";
 
 /**
  * All available games
@@ -24,6 +25,10 @@ export const gameRegistry: GameRegistryEntry[] = [
   {
     info: tetrisGameInfo,
     component: TetrisGame,
+  },
+  {
+    info: minesweeperGameInfo,
+    component: MinesweeperGame,
   },
 ];
 
@@ -44,3 +49,4 @@ export function getGameById(id: string): GameRegistryEntry | undefined {
 export { SnakeGame, snakeGameInfo } from "./SnakeGame.js";
 export { PongGame, pongGameInfo } from "./PongGame.js";
 export { TetrisGame, tetrisGameInfo } from "./TetrisGame.js";
+export { MinesweeperGame, minesweeperGameInfo } from "./MinesweeperGame.js";
