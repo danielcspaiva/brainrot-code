@@ -90,6 +90,9 @@ interface GameAreaProps {
   onAchievementUnlock: (ids: string[]) => void;
   onGameStateChange: (update: GameStateUpdate) => void;
   gamesEnabled: boolean;
+  hasActiveLoop: boolean;
+  onStartNewLoop: () => void;
+  onViewCurrentLoop: () => void;
 }
 
 /** Game area with mode switching between menu, logs, settings, stats, and active game */
@@ -105,6 +108,9 @@ function GameArea({
   onAchievementUnlock: _onAchievementUnlock,
   onGameStateChange,
   gamesEnabled,
+  hasActiveLoop,
+  onStartNewLoop,
+  onViewCurrentLoop,
 }: GameAreaProps) {
   const [mode, setMode] = useState<GameAreaMode>("menu");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -241,9 +247,12 @@ function GameArea({
         onSelectGame={handleSelectGame}
         onOpenStats={handleOpenStats}
         gamesEnabled={gamesEnabled}
+        hasActiveLoop={hasActiveLoop}
+        onStartNewLoop={onStartNewLoop}
+        onViewCurrentLoop={onViewCurrentLoop}
       />
       <Box paddingX={1}>
-        <Text dimColor>L: View Logs | Ctrl+,: Settings</Text>
+        <Text dimColor>L: View Logs | Ctrl+,: Settings | N: Loop</Text>
       </Box>
     </Box>
   );
@@ -696,6 +705,19 @@ function AppContent() {
     [setGameState]
   );
 
+  // Handler for starting a new loop from game selector menu
+  const handleStartNewLoop = useCallback(() => {
+    // Clear any existing loop state and start fresh
+    loopState.clear();
+    setShowFeaturePrompt(true);
+  }, [loopState]);
+
+  // Handler for viewing current loop from game selector menu
+  const handleViewCurrentLoop = useCallback(() => {
+    // Show the PRD overlay to view current loop details
+    setShowPrdOverlay(true);
+  }, []);
+
   // Determine effective loop status for status bar
   const effectiveLoopStatus = useMemo(() => {
     // If process is running, use ralph loop status, otherwise use process status
@@ -1044,6 +1066,9 @@ function AppContent() {
             onAchievementUnlock={addAchievements}
             onGameStateChange={handleGameStateChange}
             gamesEnabled={gamesEnabled}
+            hasActiveLoop={loopState.hasLoop && loopState.state.tasks.length > 0}
+            onStartNewLoop={handleStartNewLoop}
+            onViewCurrentLoop={handleViewCurrentLoop}
           />
         }
         managementArea={

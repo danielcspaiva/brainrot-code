@@ -25,6 +25,12 @@ export interface GameSelectorProps {
   onOpenStats?: () => void;
   /** Whether games are enabled (unlocked after loop start) */
   gamesEnabled?: boolean;
+  /** Whether a loop is currently active */
+  hasActiveLoop?: boolean;
+  /** Callback when Start New Loop is selected */
+  onStartNewLoop?: () => void;
+  /** Callback when View Current Loop is selected */
+  onViewCurrentLoop?: () => void;
 }
 
 interface GameCardProps {
@@ -153,6 +159,51 @@ function StatsMenuCard({
   );
 }
 
+interface LoopMenuCardProps {
+  isHighlighted: boolean;
+  dimensions: GameDimensions;
+  hasActiveLoop: boolean;
+}
+
+function LoopMenuCard({
+  isHighlighted,
+  dimensions,
+  hasActiveLoop,
+}: LoopMenuCardProps) {
+  const colors = useThemeColors();
+  const borderColor = isHighlighted ? colors.success : colors.border;
+  const titleColor = isHighlighted ? colors.success : colors.text;
+  const cardWidth = Math.min(Math.max(dimensions.width - 4, 30), 50);
+
+  const title = hasActiveLoop ? "View Current Loop" : "Start New Loop";
+  const description = hasActiveLoop
+    ? "View progress on your current feature development loop"
+    : "Begin a new feature development loop with Claude";
+  const icon = hasActiveLoop ? "📋" : "🚀";
+
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={borderColor}
+      paddingX={1}
+      width={cardWidth}
+    >
+      <Box>
+        <Text bold color={titleColor}>
+          {isHighlighted ? `${navIcons.arrowRight} ` : "  "}
+          {icon} {title}
+        </Text>
+      </Box>
+      <Text dimColor>{description}</Text>
+      <Box marginTop={1}>
+        <Text color={colors.textMuted}>Shortcut: </Text>
+        <Text dimColor>N</Text>
+      </Box>
+    </Box>
+  );
+}
+
 function EmptyState() {
   const colors = useThemeColors();
   return (
@@ -173,6 +224,9 @@ export function GameSelector({
   onSelectGame,
   onOpenStats,
   gamesEnabled = true,
+  hasActiveLoop = false,
+  onStartNewLoop,
+  onViewCurrentLoop,
 }: GameSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [achievementCount, setAchievementCount] = useState({
@@ -182,9 +236,12 @@ export function GameSelector({
   const [showLockedMessage, setShowLockedMessage] = useState(false);
   const colors = useThemeColors();
 
-  // Total items: games + stats menu
-  const totalItems = games.length + 1;
-  const statsIndex = games.length; // Stats is always last
+  // Menu structure: [Loop option] + [Games] + [Stats]
+  // Loop option is always at index 0
+  const loopIndex = 0;
+  const firstGameIndex = 1;
+  const statsIndex = games.length + 1; // Stats is always last
+  const totalItems = games.length + 2; // Loop option + games + stats
 
   // Load achievement count
   useEffect(() => {
@@ -207,16 +264,27 @@ export function GameSelector({
   }, [showLockedMessage]);
 
   const handleSelect = useCallback(() => {
-    if (selectedIndex === statsIndex) {
+    if (selectedIndex === loopIndex) {
+      // Loop option - first item
+      if (hasActiveLoop) {
+        onViewCurrentLoop?.();
+      } else {
+        onStartNewLoop?.();
+      }
+    } else if (selectedIndex === statsIndex) {
       // Stats is always accessible
       onOpenStats?.();
-    } else if (games.length > 0 && games[selectedIndex]) {
-      // Check if games are enabled
-      if (!gamesEnabled) {
-        setShowLockedMessage(true);
-        return;
+    } else {
+      // Game selection (indices are offset by 1 due to loop option)
+      const gameIndex = selectedIndex - firstGameIndex;
+      if (games.length > 0 && games[gameIndex]) {
+        // Check if games are enabled
+        if (!gamesEnabled) {
+          setShowLockedMessage(true);
+          return;
+        }
+        onSelectGame(games[gameIndex].id);
       }
-      onSelectGame(games[selectedIndex].id);
     }
   }, [
     games,
@@ -225,6 +293,9 @@ export function GameSelector({
     onOpenStats,
     statsIndex,
     gamesEnabled,
+    hasActiveLoop,
+    onStartNewLoop,
+    onViewCurrentLoop,
   ]);
 
   useInput(
@@ -255,10 +326,23 @@ export function GameSelector({
         return;
       }
 
+      // Quick trigger loop option with N key
+      if (input === "n" || input === "N") {
+        setSelectedIndex(loopIndex);
+        if (hasActiveLoop) {
+          onViewCurrentLoop?.();
+        } else {
+          onStartNewLoop?.();
+        }
+        return;
+      }
+
       // Quick select game by number (1-9)
       const num = parseInt(input, 10);
       if (!isNaN(num) && num >= 1 && num <= games.length) {
-        setSelectedIndex(num - 1);
+        // Map number to game index (account for loop option at index 0)
+        const gameMenuIndex = num - 1 + firstGameIndex;
+        setSelectedIndex(gameMenuIndex);
         if (games[num - 1]) {
           // Check if games are enabled before quick-selecting
           if (!gamesEnabled) {
@@ -289,37 +373,53 @@ export function GameSelector({
         </Box>
       )}
 
-      {games.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <Box flexDirection="column" gap={1}>
-          {games.map((game, index) => (
-            <GameCard
-              key={game.id}
-              game={game}
-              isSelected={index === selectedIndex}
-              isHighlighted={hasFocus && index === selectedIndex}
-              dimensions={dimensions}
-              isDisabled={!gamesEnabled}
-            />
-          ))}
+      <Box flexDirection="column" gap={1}>
+        {/* Loop option - always first */}
+        <LoopMenuCard
+          isHighlighted={hasFocus && selectedIndex === loopIndex}
+          dimensions={dimensions}
+          hasActiveLoop={hasActiveLoop}
+        />
 
-          {/* Stats & Achievements menu item */}
-          <StatsMenuCard
-            isHighlighted={hasFocus && selectedIndex === statsIndex}
-            dimensions={dimensions}
-            achievementCount={achievementCount}
-          />
-        </Box>
-      )}
+        {games.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <>
+            {games.map((game, index) => {
+              const menuIndex = index + firstGameIndex;
+              return (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  isSelected={menuIndex === selectedIndex}
+                  isHighlighted={hasFocus && menuIndex === selectedIndex}
+                  dimensions={dimensions}
+                  isDisabled={!gamesEnabled}
+                />
+              );
+            })}
+          </>
+        )}
+
+        {/* Stats & Achievements menu item */}
+        <StatsMenuCard
+          isHighlighted={hasFocus && selectedIndex === statsIndex}
+          dimensions={dimensions}
+          achievementCount={achievementCount}
+        />
+      </Box>
 
       {/* Item count indicator */}
       {totalItems > 0 && (
         <Box marginTop={1}>
           <Text dimColor>
-            {selectedIndex === statsIndex
-              ? "Stats & Achievements"
-              : `Game ${selectedIndex + 1} of ${games.length}`}
+            {selectedIndex === loopIndex
+              ? hasActiveLoop
+                ? "View Current Loop"
+                : "Start New Loop"
+              : selectedIndex === statsIndex
+                ? "Stats & Achievements"
+                : `Game ${selectedIndex - firstGameIndex + 1} of ${games.length}`}
           </Text>
         </Box>
       )}
