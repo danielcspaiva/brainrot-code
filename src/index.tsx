@@ -15,6 +15,7 @@ import { useConfig } from "./use-config.js";
 import { getLayoutOptions, getClaudeCodeOptions, deepMerge, saveConfig, type BrainrotConfig } from "./config.js";
 import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import { recordSessionStart } from "./stats.js";
+import { useLoopState } from "./use-loop-state.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -268,6 +269,16 @@ function AppContent() {
 
   // Use Ralph loop parsing for the output
   const ralphLoop = useRalphLoopWithClaudeOutput(output);
+
+  // Use loop state persistence - loads on startup and auto-saves changes
+  const loopState = useLoopState();
+
+  // Sync Ralph loop status to persistent state when it changes
+  useEffect(() => {
+    if (ralphLoop.state.status !== loopState.state.loopStatus) {
+      loopState.setLoopStatus(ralphLoop.state.status);
+    }
+  }, [ralphLoop.state.status, loopState]);
 
   // Calculate game area dimensions (accounting for layout chrome)
   const gameDimensions = useMemo(() => {
