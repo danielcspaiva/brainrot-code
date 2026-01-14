@@ -26,7 +26,7 @@ import { PrdOverlay, type PrdOverlayAction } from "./PrdOverlay.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
-import { StatusBar, GameStatusProvider, useGameStatus, LoopInfoProvider, useLoopInfo } from "./StatusBar.js";
+import { StatusBar, GameStatusProvider, useGameStatus, LoopInfoProvider, useLoopInfo, type HotkeyContext } from "./StatusBar.js";
 import { HelpOverlay } from "./HelpOverlay.js";
 
 // ============================================================================
@@ -220,12 +220,21 @@ function Header() {
 }
 
 /** Status bar footer - needs to be inside GameStatusProvider */
-function StatusBarFooter({ loopStatus, needsAttention }: { loopStatus: string; needsAttention: boolean }) {
+function StatusBarFooter({
+  loopStatus,
+  needsAttention,
+  hotkeyContext,
+}: {
+  loopStatus: string;
+  needsAttention: boolean;
+  hotkeyContext: HotkeyContext;
+}) {
   return (
     <StatusBar
       loopStatus={loopStatus}
       needsAttention={needsAttention}
       condensed={true}
+      hotkeyContext={hotkeyContext}
     />
   );
 }
@@ -581,6 +590,34 @@ function AppContent() {
     return status;
   }, [status, ralphLoop.state.status]);
 
+  // Determine current hotkey context for status bar
+  const currentHotkeyContext = useMemo((): HotkeyContext => {
+    // Interview/onboarding flows take highest priority
+    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown) {
+      return "interview";
+    }
+    // Overlays/modals
+    if (showHelpOverlay || showPrdOverlay || showResumeOverlay) {
+      return "overlay";
+    }
+    // Loop is active and running
+    if (status === "running") {
+      return "loop";
+    }
+    // Default state - game context is auto-detected by StatusBar based on gameState
+    return "default";
+  }, [
+    showOnboarding,
+    showFeaturePrompt,
+    showInterviewFlow,
+    showPrdGeneration,
+    showTaskBreakdown,
+    showHelpOverlay,
+    showPrdOverlay,
+    showResumeOverlay,
+    status,
+  ]);
+
   return (
     <ThemeProvider config={config}>
       {/* Onboarding tutorial - full-screen modal for first-time users */}
@@ -760,7 +797,7 @@ function AppContent() {
         gameTitle="Games"
         managementTitle="Loop Management"
         header={<Header />}
-        footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
+        footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} hotkeyContext={currentHotkeyContext} />}
         layoutOptions={layoutOptions}
         handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay}
       />

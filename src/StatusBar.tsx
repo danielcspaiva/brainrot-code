@@ -197,6 +197,11 @@ function formatTokens(tokens: number): string {
 // STATUS BAR COMPONENT
 // ============================================================================
 
+/**
+ * Context for which hotkeys to display in the footer
+ */
+export type HotkeyContext = "default" | "interview" | "game" | "loop" | "overlay";
+
 export interface StatusBarProps {
   /** Loop/process status */
   loopStatus: string;
@@ -204,6 +209,8 @@ export interface StatusBarProps {
   needsAttention: boolean;
   /** Condensed mode - single line */
   condensed?: boolean;
+  /** Current context for hotkey display */
+  hotkeyContext?: HotkeyContext;
 }
 
 /**
@@ -284,31 +291,97 @@ function GameInfoSection({
 }
 
 /**
- * Keyboard hints section
+ * Hotkey hint definition
  */
-function KeyHintsSection({ isPlaying }: { isPlaying: boolean }) {
-  const colors = useThemeColors();
+interface HotkeyHint {
+  key: string;
+  action: string;
+}
 
-  // Different hints based on context
-  const hints = isPlaying
-    ? [
+/**
+ * Get hotkeys based on the current application context
+ */
+function getContextualHotkeys(context: HotkeyContext, isPlaying: boolean): HotkeyHint[] {
+  switch (context) {
+    case "interview":
+      // During interview/onboarding flow
+      return [
+        { key: "Enter", action: "Submit" },
+        { key: "Esc", action: "Back" },
+        { key: "?", action: "Help" },
+        { key: "^C", action: "Quit" },
+      ];
+
+    case "game":
+      // While playing a game
+      return [
         { key: "P", action: "Pause" },
         { key: "Esc", action: "Exit" },
         { key: "Tab", action: "Focus" },
-      ]
-    : [
-        { key: "Tab", action: "Focus" },
-        { key: "Ctrl+S", action: "Loop" },
-        { key: "Ctrl+,", action: "Settings" },
+        { key: "?", action: "Help" },
+        { key: "^C", action: "Quit" },
       ];
+
+    case "loop":
+      // When Claude Code loop is active
+      return [
+        { key: "P", action: "PRD" },
+        { key: "Tab", action: "Games" },
+        { key: "^S", action: "Pause" },
+        { key: "^,", action: "Settings" },
+        { key: "?", action: "Help" },
+        { key: "^C", action: "Quit" },
+      ];
+
+    case "overlay":
+      // When an overlay/modal is shown
+      return [
+        { key: "Esc", action: "Close" },
+        { key: "?", action: "Help" },
+        { key: "^C", action: "Quit" },
+      ];
+
+    case "default":
+    default:
+      // Default state (menu, idle)
+      if (isPlaying) {
+        // Game is active but paused or game over
+        return [
+          { key: "P", action: "Pause" },
+          { key: "Esc", action: "Exit" },
+          { key: "Tab", action: "Focus" },
+          { key: "?", action: "Help" },
+          { key: "^C", action: "Quit" },
+        ];
+      }
+      // Default menu state - shows all available hotkeys
+      return [
+        { key: "P", action: "PRD" },
+        { key: "Tab", action: "Games" },
+        { key: "^S", action: "Loop" },
+        { key: "^,", action: "Settings" },
+        { key: "?", action: "Help" },
+        { key: "^C", action: "Quit" },
+      ];
+  }
+}
+
+/**
+ * Keyboard hints section - displays contextual hotkeys
+ */
+function KeyHintsSection({ isPlaying, context = "default" }: { isPlaying: boolean; context?: HotkeyContext }) {
+  const colors = useThemeColors();
+
+  // Get contextual hotkeys
+  const hints = getContextualHotkeys(context, isPlaying);
 
   return (
     <Box>
       {hints.map((hint, idx) => (
         <Box key={hint.key}>
-          {idx > 0 && <Text dimColor> | </Text>}
+          {idx > 0 && <Text dimColor> </Text>}
           <Text color={colors.accent}>{hint.key}</Text>
-          <Text dimColor>: {hint.action}</Text>
+          <Text dimColor>:{hint.action}</Text>
         </Box>
       ))}
     </Box>
@@ -412,11 +485,19 @@ function LoopInfoSection() {
  * Main Status Bar component
  * Shows loop status, loop info, current game/score, and keyboard hints in 1-2 lines
  */
-export function StatusBar({ loopStatus, needsAttention, condensed = true }: StatusBarProps) {
+export function StatusBar({ loopStatus, needsAttention, condensed = true, hotkeyContext = "default" }: StatusBarProps) {
   const { gameState } = useGameStatus();
   const { loopInfo } = useLoopInfo();
   const isPlaying = gameState.status === "playing" || gameState.status === "paused";
   const hasLoopInfo = loopInfo.progress || loopInfo.currentTask || loopInfo.startedAt;
+
+  // Determine effective hotkey context
+  // If playing a game, use "game" context unless explicitly overridden
+  const effectiveContext: HotkeyContext = hotkeyContext !== "default"
+    ? hotkeyContext
+    : isPlaying
+      ? "game"
+      : "default";
 
   if (condensed) {
     // Single line layout
@@ -444,7 +525,7 @@ export function StatusBar({ loopStatus, needsAttention, condensed = true }: Stat
             </>
           )}
         </Box>
-        <KeyHintsSection isPlaying={isPlaying} />
+        <KeyHintsSection isPlaying={isPlaying} context={effectiveContext} />
       </Box>
     );
   }
@@ -472,7 +553,7 @@ export function StatusBar({ loopStatus, needsAttention, condensed = true }: Stat
         )}
       </Box>
       <Box justifyContent="flex-end" width="100%">
-        <KeyHintsSection isPlaying={isPlaying} />
+        <KeyHintsSection isPlaying={isPlaying} context={effectiveContext} />
       </Box>
     </Box>
   );
