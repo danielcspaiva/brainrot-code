@@ -12,6 +12,7 @@ import {
   MIN_HEIGHT,
 } from "./use-terminal-size.js";
 import { useLayoutState, type UseLayoutStateOptions } from "./use-layout-state.js";
+import { colors, navIcons } from "./theme.js";
 
 export interface LayoutProps {
   /** Content for the game area (left/top pane) */
@@ -52,16 +53,16 @@ function TooSmallWarning({
       justifyContent="center"
       padding={1}
     >
-      <Text color="yellow" bold>
+      <Text color={colors.warning} bold>
         Terminal too small
       </Text>
-      <Text color="gray">
+      <Text color={colors.textMuted}>
         Current: {width}x{height}
       </Text>
-      <Text color="gray">
+      <Text color={colors.textMuted}>
         Required: {minWidth}x{minHeight}
       </Text>
-      <Text color="yellow">Please resize your terminal</Text>
+      <Text color={colors.warning}>Please resize your terminal</Text>
     </Box>
   );
 }
@@ -175,10 +176,10 @@ export function Layout({
     <Box flexDirection="column" width="100%" height="100%">
       <Box>
         <Text
-          color={layout.state.focusedPane === 0 ? "cyan" : "gray"}
+          color={layout.state.focusedPane === 0 ? colors.primary : colors.textMuted}
           bold={layout.state.focusedPane === 0}
         >
-          {layout.state.focusedPane === 0 ? "▸ " : "  "}
+          {layout.state.focusedPane === 0 ? `${navIcons.arrowRight} ` : "  "}
           {gameTitle}
         </Text>
       </Box>
@@ -192,10 +193,10 @@ export function Layout({
     <Box flexDirection="column" width="100%" height="100%">
       <Box>
         <Text
-          color={layout.state.focusedPane === 1 ? "cyan" : "gray"}
+          color={layout.state.focusedPane === 1 ? colors.primary : colors.textMuted}
           bold={layout.state.focusedPane === 1}
         >
-          {layout.state.focusedPane === 1 ? "▸ " : "  "}
+          {layout.state.focusedPane === 1 ? `${navIcons.arrowRight} ` : "  "}
           {managementTitle}
         </Text>
       </Box>

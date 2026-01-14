@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { GameComponentProps, GameInfo } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
+import { colors, gameColors, boxChars, gameChars } from "../theme.js";
 
 /** Pong game metadata */
 export const pongGameInfo: GameInfo = {
@@ -86,11 +87,11 @@ function GameBoard({ state, width, height }: GameBoardProps) {
     for (let x = 0; x < width; x++) {
       // Border
       if (y === 0 || y === height - 1) {
-        row.push("═");
+        row.push(boxChars.double.horizontal);
       } else if (x === 0 || x === width - 1) {
         row.push(" ");
       } else if (x === Math.floor(width / 2)) {
-        row.push("│"); // Center line
+        row.push(boxChars.light.vertical); // Center line
       } else {
         row.push(" ");
       }
@@ -100,10 +101,10 @@ function GameBoard({ state, width, height }: GameBoardProps) {
 
   // Corners and edges
   if (height > 0 && width > 0) {
-    board[0][0] = "╔";
-    board[0][width - 1] = "╗";
-    board[height - 1][0] = "╚";
-    board[height - 1][width - 1] = "╝";
+    board[0][0] = boxChars.double.topLeft;
+    board[0][width - 1] = boxChars.double.topRight;
+    board[height - 1][0] = boxChars.double.bottomLeft;
+    board[height - 1][width - 1] = boxChars.double.bottomRight;
   }
 
   // Player paddle (left side)
@@ -111,7 +112,7 @@ function GameBoard({ state, width, height }: GameBoardProps) {
   for (let i = 0; i < PADDLE_HEIGHT; i++) {
     const y = state.playerY + i;
     if (y > 0 && y < height - 1) {
-      board[y][paddleX] = "█";
+      board[y][paddleX] = gameChars.paddle;
     }
   }
 
@@ -120,7 +121,7 @@ function GameBoard({ state, width, height }: GameBoardProps) {
   for (let i = 0; i < PADDLE_HEIGHT; i++) {
     const y = state.aiY + i;
     if (y > 0 && y < height - 1) {
-      board[y][aiPaddleX] = "█";
+      board[y][aiPaddleX] = gameChars.paddle;
     }
   }
 
@@ -128,7 +129,7 @@ function GameBoard({ state, width, height }: GameBoardProps) {
   const ballX = Math.round(state.ball.x);
   const ballY = Math.round(state.ball.y);
   if (ballY > 0 && ballY < height - 1 && ballX > 0 && ballX < width - 1) {
-    board[ballY][ballX] = "●";
+    board[ballY][ballX] = gameChars.ball;
   }
 
   return (
@@ -149,15 +150,15 @@ function GameBoard({ state, width, height }: GameBoardProps) {
             const isBall = x === ballX && y === ballY;
 
             if (isPlayerPaddle) {
-              color = "cyan";
+              color = gameColors.player;
             } else if (isAIPaddle) {
-              color = "magenta";
+              color = gameColors.opponent;
             } else if (isBall) {
-              color = "yellow";
-            } else if (cell === "│") {
-              color = "gray";
+              color = colors.accent;
+            } else if (cell === boxChars.light.vertical) {
+              color = colors.border;
             } else if (cell !== " ") {
-              color = "gray";
+              color = colors.border;
             }
 
             return (
@@ -184,8 +185,8 @@ function ScoreDisplay({
   return (
     <Box justifyContent="space-between" paddingX={1}>
       <Box>
-        <Text color="cyan">Player: </Text>
-        <Text bold color="cyan">
+        <Text color={gameColors.player}>Player: </Text>
+        <Text bold color={gameColors.player}>
           {playerScore}
         </Text>
       </Box>
@@ -193,8 +194,8 @@ function ScoreDisplay({
         <Text dimColor>First to {WIN_SCORE} wins</Text>
       </Box>
       <Box>
-        <Text color="magenta">AI: </Text>
-        <Text bold color="magenta">
+        <Text color={gameColors.opponent}>AI: </Text>
+        <Text bold color={gameColors.opponent}>
           {aiScore}
         </Text>
       </Box>
@@ -211,7 +212,7 @@ function GameOverOverlay({ winner }: { winner: "player" | "ai" }) {
       justifyContent="center"
       padding={2}
     >
-      <Text bold color={winner === "player" ? "green" : "red"}>
+      <Text bold color={winner === "player" ? colors.success : colors.error}>
         {winner === "player" ? "YOU WIN!" : "AI WINS!"}
       </Text>
       <Text dimColor>Press R to play again</Text>
@@ -227,7 +228,7 @@ function PausedOverlay() {
       justifyContent="center"
       padding={2}
     >
-      <Text bold color="yellow">
+      <Text bold color={colors.warning}>
         PAUSED
       </Text>
       <Text dimColor>Press P to resume</Text>

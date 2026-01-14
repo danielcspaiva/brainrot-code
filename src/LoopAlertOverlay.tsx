@@ -7,6 +7,7 @@
 
 import { Box, Text } from "ink";
 import type { LoopAttention } from "./game-types.js";
+import { getAlertColor, getAlertIcon } from "./theme.js";
 
 interface LoopAlertOverlayProps {
   attention: LoopAttention;
@@ -14,41 +15,11 @@ interface LoopAlertOverlayProps {
   onDismiss?: () => void;
 }
 
-function getAlertIcon(type: LoopAttention["type"]): string {
-  switch (type) {
-    case "question":
-      return "?";
-    case "confirmation":
-      return "!";
-    case "error":
-      return "X";
-    case "permission":
-      return "*";
-    default:
-      return "!";
-  }
-}
-
-function getAlertColor(type: LoopAttention["type"]): string {
-  switch (type) {
-    case "question":
-      return "cyan";
-    case "confirmation":
-      return "yellow";
-    case "error":
-      return "red";
-    case "permission":
-      return "magenta";
-    default:
-      return "yellow";
-  }
-}
-
 export function LoopAlertOverlay({
   attention,
 }: LoopAlertOverlayProps) {
-  const icon = getAlertIcon(attention.type);
-  const color = getAlertColor(attention.type);
+  const icon = getAlertIcon(attention.type ?? "info");
+  const color = getAlertColor(attention.type ?? "info");
 
   return (
     <Box

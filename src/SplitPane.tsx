@@ -6,6 +6,7 @@
 import { Box, Text, useInput } from "ink";
 import type { ReactNode } from "react";
 import type { SplitDirection } from "./use-layout-state.js";
+import { colors, boxChars, navIcons } from "./theme.js";
 
 export interface SplitPaneProps {
   /** First pane content (left/top) */
@@ -44,11 +45,11 @@ interface DividerProps {
 }
 
 function Divider({ direction, width, height, isResizing }: DividerProps) {
-  const color = isResizing ? "cyan" : "gray";
+  const color = isResizing ? colors.primary : colors.border;
 
   if (direction === "horizontal") {
     // Vertical divider (one column wide, full height)
-    const dividerChar = isResizing ? "┃" : "│";
+    const dividerChar = isResizing ? boxChars.heavy.vertical : boxChars.light.vertical;
     return (
       <Box flexDirection="column" width={1} height={height}>
         {Array.from({ length: height }).map((_, i) => (
@@ -60,7 +61,7 @@ function Divider({ direction, width, height, isResizing }: DividerProps) {
     );
   } else {
     // Horizontal divider (full width, one row)
-    const dividerChar = isResizing ? "━" : "─";
+    const dividerChar = isResizing ? boxChars.heavy.horizontal : boxChars.light.horizontal;
     return (
       <Box width={width} height={1}>
         <Text color={color}>{dividerChar.repeat(width)}</Text>
@@ -163,8 +164,8 @@ export function SplitPane({
   secondWidth = Math.max(0, secondWidth);
   secondHeight = Math.max(0, secondHeight);
 
-  const firstPaneBorderColor = focusedPane === 0 ? "cyan" : "gray";
-  const secondPaneBorderColor = focusedPane === 1 ? "cyan" : "gray";
+  const firstPaneBorderColor = focusedPane === 0 ? colors.borderFocus : colors.border;
+  const secondPaneBorderColor = focusedPane === 1 ? colors.borderFocus : colors.border;
 
   return (
     <Box
@@ -228,14 +229,14 @@ export function Pane({
   width,
   height,
 }: PaneProps) {
-  const titleColor = isFocused ? "cyan" : "gray";
+  const titleColor = isFocused ? colors.primary : colors.textMuted;
 
   return (
     <Box flexDirection="column" width={width} height={height}>
       {title && (
         <Box>
           <Text color={titleColor} bold={isFocused}>
-            {isFocused ? "▸ " : "  "}
+            {isFocused ? `${navIcons.arrowRight} ` : "  "}
             {title}
           </Text>
         </Box>

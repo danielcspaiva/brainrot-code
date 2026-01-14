@@ -8,6 +8,7 @@
 import { Box, Text, useInput } from "ink";
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
+import { colors } from "./theme.js";
 
 export interface LogViewerProps {
   /** Array of log outputs from Claude Code */
@@ -103,7 +104,7 @@ function LogLineDisplay({
   showTimestamp: boolean;
   viewMode: "condensed" | "full";
 }) {
-  const textColor = line.type === "stderr" ? "red" : "white";
+  const textColor = line.type === "stderr" ? colors.error : colors.text;
 
   return (
     <Box>
@@ -111,7 +112,7 @@ function LogLineDisplay({
         <Text dimColor>[{formatTimestamp(line.timestamp)}] </Text>
       )}
       {viewMode === "full" && (
-        <Text color={line.type === "stderr" ? "red" : "gray"}>
+        <Text color={line.type === "stderr" ? colors.error : colors.textMuted}>
           {line.type === "stderr" ? "ERR " : "OUT "}
         </Text>
       )}
@@ -174,15 +175,15 @@ function LogViewerHeader({
   return (
     <Box justifyContent="space-between" marginBottom={1}>
       <Box>
-        <Text bold color="cyan">
+        <Text bold color={colors.primary}>
           Logs
         </Text>
         <Text dimColor> ({totalLines} lines)</Text>
-        {autoScroll && <Text color="green"> [AUTO]</Text>}
+        {autoScroll && <Text color={colors.success}> [AUTO]</Text>}
       </Box>
       <Box>
         <Text dimColor>View: </Text>
-        <Text color={viewMode === "full" ? "cyan" : "gray"}>
+        <Text color={viewMode === "full" ? colors.primary : colors.textMuted}>
           {viewMode.toUpperCase()}
         </Text>
         {hasFocus && (

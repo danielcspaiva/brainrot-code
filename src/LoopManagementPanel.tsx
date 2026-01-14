@@ -8,6 +8,12 @@
 import { Box, Text } from "ink";
 import { useState, useEffect, useCallback } from "react";
 import type { RalphLoopState, RalphLoopStatus } from "./ralph-loop-parser.js";
+import {
+  colors,
+  progressChars,
+  getStatusColor,
+  getStatusIcon,
+} from "./theme.js";
 
 export interface ActivityLogEntry {
   timestamp: Date;
@@ -37,35 +43,6 @@ export interface LoopManagementPanelProps {
   /** Maximum activity log entries to show */
   maxLogEntries?: number;
 }
-
-// Status colors for visual indicator
-const STATUS_COLORS: Record<RalphLoopStatus | string, string> = {
-  idle: "gray",
-  running: "green",
-  paused: "yellow",
-  completed: "cyan",
-  errored: "red",
-  waiting_for_input: "magenta",
-  // Process statuses
-  starting: "yellow",
-  stopping: "yellow",
-  stopped: "gray",
-  crashed: "red",
-};
-
-// Status icons for visual indicator
-const STATUS_ICONS: Record<RalphLoopStatus | string, string> = {
-  idle: "○",
-  running: "●",
-  paused: "◐",
-  completed: "✓",
-  errored: "✗",
-  waiting_for_input: "?",
-  starting: "◔",
-  stopping: "◔",
-  stopped: "○",
-  crashed: "✗",
-};
 
 /**
  * Format duration as human-readable string
@@ -106,8 +83,8 @@ function StatusIndicator({
   status: string;
   needsAttention: boolean;
 }) {
-  const color = needsAttention ? "magenta" : (STATUS_COLORS[status] ?? "white");
-  const icon = STATUS_ICONS[status] ?? "?";
+  const color = needsAttention ? colors.secondary : getStatusColor(status);
+  const icon = getStatusIcon(status);
 
   return (
     <Box>
@@ -116,7 +93,7 @@ function StatusIndicator({
       </Text>
       <Text color={color}> {status.toUpperCase().replace(/_/g, " ")}</Text>
       {needsAttention && (
-        <Text color="magenta" bold>
+        <Text color={colors.secondary} bold>
           {" "}
           (!)
         </Text>
@@ -140,8 +117,8 @@ function ProgressBar({
 
   return (
     <Text>
-      <Text color="green">{"█".repeat(filled)}</Text>
-      <Text color="gray">{"░".repeat(empty)}</Text>
+      <Text color={colors.success}>{progressChars.filled.repeat(filled)}</Text>
+      <Text color={colors.textMuted}>{progressChars.empty.repeat(empty)}</Text>
       <Text dimColor> {percentage}%</Text>
     </Text>
   );
@@ -165,7 +142,7 @@ function AgentActivityDisplay({
       <Box marginLeft={1}>
         {agentActivity.isActive ? (
           <Box flexDirection="column">
-            <Text color="cyan">{statusMessage}</Text>
+            <Text color={colors.primary}>{statusMessage}</Text>
             {agentActivity.toolName && (
               <Text dimColor>Tool: {agentActivity.toolName}</Text>
             )}
@@ -220,7 +197,7 @@ function DurationDisplay({ startTime }: { startTime: Date | null }) {
   return (
     <Box>
       <Text dimColor>Duration: </Text>
-      <Text color="yellow">{formatDuration(elapsed)}</Text>
+      <Text color={colors.accent}>{formatDuration(elapsed)}</Text>
     </Box>
   );
 }
@@ -250,19 +227,19 @@ function ControlsDisplay({
       <Box marginLeft={1} flexDirection="column">
         {canStart && (
           <Text>
-            <Text color="green">Ctrl+S</Text>
+            <Text color={colors.success}>Ctrl+S</Text>
             <Text dimColor> Start loop</Text>
           </Text>
         )}
         {canStop && (
           <Text>
-            <Text color="red">Ctrl+S</Text>
+            <Text color={colors.error}>Ctrl+S</Text>
             <Text dimColor> Stop loop</Text>
           </Text>
         )}
         {isPaused && (
           <Text>
-            <Text color="yellow">Ctrl+R</Text>
+            <Text color={colors.warning}>Ctrl+R</Text>
             <Text dimColor> Resume loop</Text>
           </Text>
         )}
@@ -275,17 +252,17 @@ function ControlsDisplay({
  * Activity log entry component
  */
 function LogEntry({ entry }: { entry: ActivityLogEntry }) {
-  const colors: Record<ActivityLogEntry["type"], string> = {
-    info: "white",
-    action: "cyan",
-    warning: "yellow",
-    error: "red",
+  const logColors: Record<ActivityLogEntry["type"], string> = {
+    info: colors.text,
+    action: colors.primary,
+    warning: colors.warning,
+    error: colors.error,
   };
 
   return (
     <Box>
       <Text dimColor>[{formatTime(entry.timestamp)}]</Text>
-      <Text color={colors[entry.type]}> {entry.message}</Text>
+      <Text color={logColors[entry.type]}> {entry.message}</Text>
     </Box>
   );
 }
@@ -453,7 +430,7 @@ export function LoopManagementPanel({
     <Box flexDirection="column" padding={1} height="100%">
       {/* Header with status indicator */}
       <Box marginBottom={1}>
-        <Text bold color="cyan">
+        <Text bold color={colors.primary}>
           Loop Status
         </Text>
       </Box>
@@ -477,7 +454,7 @@ export function LoopManagementPanel({
         {progressString && (
           <Box>
             <Text dimColor>Progress: </Text>
-            <Text color="cyan">{progressString}</Text>
+            <Text color={colors.primary}>{progressString}</Text>
           </Box>
         )}
       </Box>
@@ -510,14 +487,14 @@ export function LoopManagementPanel({
         <Box
           marginBottom={1}
           borderStyle="round"
-          borderColor="magenta"
+          borderColor={colors.secondary}
           paddingX={1}
         >
           <Box flexDirection="column">
-            <Text color="magenta" bold>
+            <Text color={colors.secondary} bold>
               Attention Required
             </Text>
-            <Text color="magenta">{loopState.userAttention.reason}</Text>
+            <Text color={colors.secondary}>{loopState.userAttention.reason}</Text>
             {loopState.userAttention.prompt && (
               <Text dimColor>{loopState.userAttention.prompt}</Text>
             )}

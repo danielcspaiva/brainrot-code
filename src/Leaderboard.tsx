@@ -6,6 +6,7 @@
 
 import { Box, Text } from "ink";
 import { type ScoreEntry, formatScoreDate } from "./high-scores.js";
+import { colors, getRankColor } from "./theme.js";
 
 interface LeaderboardProps {
   /** Game title to display */
@@ -56,7 +57,7 @@ export function Leaderboard({
   return (
     <Box flexDirection="column" borderStyle="single" paddingX={1}>
       <Box justifyContent="center" marginBottom={1}>
-        <Text bold color="cyan">
+        <Text bold color={colors.primary}>
           {title}
         </Text>
       </Box>
@@ -85,13 +86,7 @@ export function Leaderboard({
             return (
               <Box key={index}>
                 <Text
-                  color={
-                    isHighlighted
-                      ? "green"
-                      : position <= 3
-                        ? "yellow"
-                        : undefined
-                  }
+                  color={getRankColor(position, isHighlighted)}
                   bold={isHighlighted || position === 1}
                 >
                   {positionStr} {scoreStr} {dateStr}
@@ -174,20 +169,20 @@ export function NewHighScoreBanner({
       flexDirection="column"
       alignItems="center"
       borderStyle="double"
-      borderColor="green"
+      borderColor={colors.success}
       paddingX={2}
       paddingY={1}
     >
-      <Text bold color="green">
+      <Text bold color={colors.success}>
         NEW HIGH SCORE!
       </Text>
       <Text>
-        <Text color="yellow" bold>
+        <Text color={colors.accent} bold>
           {formatScore(score)}
         </Text>
       </Text>
       <Text>
-        You ranked <Text color="cyan">{positionText}</Text> place!
+        You ranked <Text color={colors.primary}>{positionText}</Text> place!
       </Text>
     </Box>
   );

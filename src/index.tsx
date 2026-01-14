@@ -10,6 +10,7 @@ import { GameSelector } from "./GameSelector.js";
 import { getGameList, getGameById } from "./games/index.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention } from "./game-types.js";
+import { colors } from "./theme.js";
 
 type GameAreaMode = "menu" | "logs" | "game";
 
@@ -63,7 +64,7 @@ function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismis
     return (
       <Box flexDirection="column" height="100%">
         <Box paddingX={1} marginBottom={1}>
-          <Text bold color="cyan">
+          <Text bold color={colors.primary}>
             Live Logs
           </Text>
           <Text dimColor> | L: Back to Games | Q: Menu</Text>
@@ -108,8 +109,8 @@ function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismis
 /** Header component */
 function Header() {
   return (
-    <Box borderStyle="round" borderColor="cyan" paddingX={2}>
-      <Text bold color="cyan">
+    <Box borderStyle="round" borderColor={colors.primary} paddingX={2}>
+      <Text bold color={colors.primary}>
         BRAINROT CLI
       </Text>
       <Text> - </Text>

@@ -8,6 +8,7 @@
 import { Box, Text, useInput } from "ink";
 import { useState, useCallback } from "react";
 import type { GameInfo, GameDimensions } from "./game-types.js";
+import { colors, navIcons } from "./theme.js";
 
 export interface GameSelectorProps {
   /** Available games to select from */
@@ -28,8 +29,8 @@ interface GameCardProps {
 }
 
 function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps) {
-  const borderColor = isHighlighted ? "cyan" : isSelected ? "yellow" : "gray";
-  const titleColor = isHighlighted ? "cyan" : isSelected ? "yellow" : "white";
+  const borderColor = isHighlighted ? colors.primary : isSelected ? colors.accent : colors.border;
+  const titleColor = isHighlighted ? colors.primary : isSelected ? colors.accent : colors.text;
 
   // Calculate card width based on available space
   const cardWidth = Math.min(Math.max(dimensions.width - 4, 30), 50);
@@ -44,7 +45,7 @@ function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps
     >
       <Box>
         <Text bold color={titleColor}>
-          {isHighlighted ? "▸ " : "  "}
+          {isHighlighted ? `${navIcons.arrowRight} ` : "  "}
           {game.name}
         </Text>
       </Box>
@@ -52,7 +53,7 @@ function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps
         {game.description}
       </Text>
       <Box marginTop={1}>
-        <Text color="gray">Controls: </Text>
+        <Text color={colors.textMuted}>Controls: </Text>
         <Text dimColor>{game.controls}</Text>
       </Box>
       {game.minWidth && game.minHeight && (
@@ -67,8 +68,8 @@ function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps
 function SelectorHeader({ hasFocus }: { hasFocus: boolean }) {
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="cyan">
-        🎮 Select a Game
+      <Text bold color={colors.primary}>
+        Select a Game
       </Text>
       <Text dimColor>
         {hasFocus
@@ -82,7 +83,7 @@ function SelectorHeader({ hasFocus }: { hasFocus: boolean }) {
 function EmptyState() {
   return (
     <Box flexDirection="column" padding={2}>
-      <Text color="yellow">No games available</Text>
+      <Text color={colors.accent}>No games available</Text>
       <Text dimColor>Check back later for new games!</Text>
     </Box>
   );
