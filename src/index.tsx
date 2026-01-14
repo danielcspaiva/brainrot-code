@@ -14,7 +14,7 @@ import { getLayoutOptions, getClaudeCodeOptions, deepMerge, saveConfig, type Bra
 import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention } from "./game-types.js";
-import { colors } from "./theme.js";
+import { ThemeProvider, useThemeColors } from "./useTheme.js";
 
 // ============================================================================
 // CLI OVERRIDE CONTEXT
@@ -58,6 +58,7 @@ function GameArea({
 }: GameAreaProps) {
   const [mode, setMode] = useState<GameAreaMode>("menu");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const colors = useThemeColors();
 
   const games = useMemo(() => getGameList(), []);
 
@@ -162,6 +163,7 @@ function GameArea({
 
 /** Header component */
 function Header() {
+  const colors = useThemeColors();
   return (
     <Box borderStyle="round" borderColor={colors.primary} paddingX={2}>
       <Text bold color={colors.primary}>
@@ -274,36 +276,38 @@ function App() {
   });
 
   return (
-    <Layout
-      gameArea={
-        <GameArea
-          logs={output}
-          hasFocus={focusedPane === 0}
-          dimensions={gameDimensions}
-          loopAttention={loopAttention}
-          onLoopAlertDismiss={handleLoopAlertDismiss}
-          config={config}
-          onConfigChange={handleConfigChange}
-          onConfigSave={handleConfigSave}
-        />
-      }
-      managementArea={
-        <LoopManagementPanel
-          loopState={ralphLoop.state}
-          needsAttention={ralphLoop.needsAttention}
-          statusMessage={ralphLoop.statusMessage}
-          progressString={ralphLoop.progressString}
-          processStatus={status}
-          onStart={spawn}
-          onStop={() => void stop()}
-        />
-      }
-      gameTitle="Games"
-      managementTitle="Loop Management"
-      header={<Header />}
-      footer={<Footer />}
-      layoutOptions={layoutOptions}
-    />
+    <ThemeProvider config={config}>
+      <Layout
+        gameArea={
+          <GameArea
+            logs={output}
+            hasFocus={focusedPane === 0}
+            dimensions={gameDimensions}
+            loopAttention={loopAttention}
+            onLoopAlertDismiss={handleLoopAlertDismiss}
+            config={config}
+            onConfigChange={handleConfigChange}
+            onConfigSave={handleConfigSave}
+          />
+        }
+        managementArea={
+          <LoopManagementPanel
+            loopState={ralphLoop.state}
+            needsAttention={ralphLoop.needsAttention}
+            statusMessage={ralphLoop.statusMessage}
+            progressString={ralphLoop.progressString}
+            processStatus={status}
+            onStart={spawn}
+            onStop={() => void stop()}
+          />
+        }
+        gameTitle="Games"
+        managementTitle="Loop Management"
+        header={<Header />}
+        footer={<Footer />}
+        layoutOptions={layoutOptions}
+      />
+    </ThemeProvider>
   );
 }
 

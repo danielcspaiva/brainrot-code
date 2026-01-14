@@ -8,17 +8,19 @@
 import { Box, Text } from "ink";
 import type { ReactNode } from "react";
 import {
-  colors,
   boxChars,
   navIcons,
   progressChars,
   statusIcons,
-  statusColors,
   alertIcons,
-  alertColors,
   spacing,
   getSpinnerFrame,
 } from "./theme.js";
+import {
+  useThemeColors,
+  useStatusColors,
+  useAlertColors,
+} from "./useTheme.js";
 
 // ============================================================================
 // PANEL COMPONENT
@@ -59,6 +61,7 @@ export function Panel({
   paddingX = 1,
   paddingY = 0,
 }: PanelProps) {
+  const colors = useThemeColors();
   const effectiveBorderColor = borderColor ?? (isFocused ? colors.borderFocus : colors.border);
 
   return (
@@ -114,6 +117,7 @@ export function Card({
   isHighlighted = false,
   width,
 }: CardProps) {
+  const colors = useThemeColors();
   const borderColor = isHighlighted
     ? colors.primary
     : isSelected
@@ -164,19 +168,19 @@ export interface BadgeProps {
   bold?: boolean;
 }
 
-const badgeVariantColors: Record<NonNullable<BadgeProps["variant"]>, string> = {
-  default: colors.textMuted,
-  success: colors.success,
-  warning: colors.warning,
-  error: colors.error,
-  info: colors.info,
-  primary: colors.primary,
-};
-
 /**
  * Badge component for status indicators and labels
  */
 export function Badge({ children, variant = "default", bold = false }: BadgeProps) {
+  const colors = useThemeColors();
+  const badgeVariantColors: Record<NonNullable<BadgeProps["variant"]>, string> = {
+    default: colors.textMuted,
+    success: colors.success,
+    warning: colors.warning,
+    error: colors.error,
+    info: colors.info,
+    primary: colors.primary,
+  };
   const color = badgeVariantColors[variant];
 
   return (
@@ -207,6 +211,8 @@ export function StatusIndicator({
   needsAttention = false,
   showLabel = true,
 }: StatusIndicatorProps) {
+  const colors = useThemeColors();
+  const statusColors = useStatusColors();
   const color = needsAttention
     ? colors.secondary
     : (statusColors[status as keyof typeof statusColors] ?? colors.textMuted);
@@ -254,17 +260,20 @@ export function ProgressBar({
   percentage,
   width = 20,
   showLabel = true,
-  filledColor = colors.success,
-  emptyColor = colors.textMuted,
+  filledColor,
+  emptyColor,
 }: ProgressBarProps) {
+  const colors = useThemeColors();
+  const effectiveFilledColor = filledColor ?? colors.success;
+  const effectiveEmptyColor = emptyColor ?? colors.textMuted;
   const clampedPct = Math.max(0, Math.min(100, percentage));
   const filled = Math.round((clampedPct / 100) * width);
   const empty = width - filled;
 
   return (
     <Text>
-      <Text color={filledColor}>{progressChars.filled.repeat(filled)}</Text>
-      <Text color={emptyColor}>{progressChars.empty.repeat(empty)}</Text>
+      <Text color={effectiveFilledColor}>{progressChars.filled.repeat(filled)}</Text>
+      <Text color={effectiveEmptyColor}>{progressChars.empty.repeat(empty)}</Text>
       {showLabel && <Text dimColor> {Math.round(clampedPct)}%</Text>}
     </Text>
   );
@@ -291,14 +300,16 @@ export interface SpinnerProps {
 export function Spinner({
   elapsedMs,
   style = "spinner",
-  color = colors.primary,
+  color,
   label,
 }: SpinnerProps) {
+  const colors = useThemeColors();
+  const effectiveColor = color ?? colors.primary;
   const frame = getSpinnerFrame(elapsedMs, style);
 
   return (
     <Box>
-      <Text color={color}>{frame}</Text>
+      <Text color={effectiveColor}>{frame}</Text>
       {label && <Text> {label}</Text>}
     </Box>
   );
@@ -325,16 +336,18 @@ export interface DividerProps {
 export function Divider({
   width = 40,
   style = "light",
-  color = colors.border,
+  color,
   label,
 }: DividerProps) {
+  const colors = useThemeColors();
+  const effectiveColor = color ?? colors.border;
   const char = style === "dashed" ? "╌" : boxChars[style === "heavy" ? "heavy" : style === "double" ? "double" : "light"].horizontal;
 
   if (label) {
     const labelWithPadding = ` ${label} `;
     const sideWidth = Math.max(0, Math.floor((width - labelWithPadding.length) / 2));
     return (
-      <Text color={color}>
+      <Text color={effectiveColor}>
         {char.repeat(sideWidth)}
         <Text dimColor>{labelWithPadding}</Text>
         {char.repeat(width - sideWidth - labelWithPadding.length)}
@@ -342,7 +355,7 @@ export function Divider({
     );
   }
 
-  return <Text color={color}>{char.repeat(width)}</Text>;
+  return <Text color={effectiveColor}>{char.repeat(width)}</Text>;
 }
 
 // ============================================================================
@@ -369,6 +382,8 @@ export function AlertBox({
   children,
   hint,
 }: AlertBoxProps) {
+  const colors = useThemeColors();
+  const alertColors = useAlertColors();
   const color = alertColors[type as keyof typeof alertColors] ?? colors.info;
   const icon = alertIcons[type as keyof typeof alertIcons] ?? alertIcons.info;
 
@@ -413,10 +428,12 @@ export interface KeyHintProps {
 /**
  * Keyboard shortcut hint
  */
-export function KeyHint({ keyName, action, keyColor = colors.primary }: KeyHintProps) {
+export function KeyHint({ keyName, action, keyColor }: KeyHintProps) {
+  const colors = useThemeColors();
+  const effectiveKeyColor = keyColor ?? colors.primary;
   return (
     <Text>
-      <Text color={keyColor}>{keyName}</Text>
+      <Text color={effectiveKeyColor}>{keyName}</Text>
       <Text dimColor>: {action}</Text>
     </Text>
   );
@@ -437,6 +454,7 @@ export interface KeyHintsRowProps {
  * Row of keyboard hints
  */
 export function KeyHintsRow({ hints, separator = " | " }: KeyHintsRowProps) {
+  const colors = useThemeColors();
   return (
     <Text dimColor>
       {hints.map((hint, index) => (
@@ -466,10 +484,12 @@ export interface HeaderProps {
 /**
  * App header with title and optional subtitle
  */
-export function Header({ title, subtitle, borderColor = colors.primary }: HeaderProps) {
+export function Header({ title, subtitle, borderColor }: HeaderProps) {
+  const colors = useThemeColors();
+  const effectiveBorderColor = borderColor ?? colors.primary;
   return (
-    <Box borderStyle="round" borderColor={borderColor} paddingX={spacing.md}>
-      <Text bold color={borderColor}>
+    <Box borderStyle="round" borderColor={effectiveBorderColor} paddingX={spacing.md}>
+      <Text bold color={effectiveBorderColor}>
         {title}
       </Text>
       {subtitle && (
@@ -497,6 +517,7 @@ export interface SectionHeaderProps {
  * Section header with focus indicator
  */
 export function SectionHeader({ title, isActive = false }: SectionHeaderProps) {
+  const colors = useThemeColors();
   return (
     <Box marginBottom={spacing.xs}>
       <Text
@@ -525,6 +546,7 @@ export interface EmptyStateProps {
  * Empty state placeholder
  */
 export function EmptyState({ message, hint }: EmptyStateProps) {
+  const colors = useThemeColors();
   return (
     <Box flexDirection="column" padding={spacing.md}>
       <Text color={colors.accent}>{message}</Text>
@@ -554,16 +576,18 @@ export interface ScoreDisplayProps {
 export function ScoreDisplay({
   label,
   value,
-  color = colors.primary,
+  color,
   formatNumber = true,
 }: ScoreDisplayProps) {
+  const colors = useThemeColors();
+  const effectiveColor = color ?? colors.primary;
   const displayValue =
     formatNumber && typeof value === "number" ? value.toLocaleString() : value;
 
   return (
     <Box>
-      <Text color={color}>{label}: </Text>
-      <Text bold color={color}>
+      <Text color={effectiveColor}>{label}: </Text>
+      <Text bold color={effectiveColor}>
         {displayValue}
       </Text>
     </Box>
@@ -594,6 +618,7 @@ export function Countdown({
   warningThreshold = 30,
   criticalThreshold = 10,
 }: CountdownProps) {
+  const colors = useThemeColors();
   const color =
     seconds <= criticalThreshold
       ? colors.error
@@ -639,6 +664,7 @@ export function ListItem({
   bullet = "dot",
   number,
 }: ListItemProps) {
+  const colors = useThemeColors();
   const color = isSelected ? colors.primary : undefined;
 
   let bulletChar: string;

@@ -90,3 +90,33 @@ export {
   type UseSpinnerResult,
   type SpinnerStyle,
 } from "../use-spinner.js";
+
+// Theme context and hooks
+export {
+  ThemeProvider,
+  useTheme,
+  useThemeColors,
+  useStatusColors,
+  useAlertColors,
+  useGameColors,
+  useRankColors,
+  getThemedStatusColor,
+  getThemedAlertColor,
+  getThemedRankColor,
+  type Theme,
+  type ThemeId,
+} from "../useTheme.js";
+
+// Theme definitions
+export {
+  themes,
+  getTheme,
+  getThemeIds,
+  getThemeInfo,
+  isValidThemeId,
+  type ThemeColors,
+  type ThemeStatusColors,
+  type ThemeAlertColors,
+  type ThemeGameColors,
+  type ThemeRankColors,
+} from "../themes.js";

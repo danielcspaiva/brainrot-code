@@ -6,7 +6,7 @@
 
 import { Box, Text } from "ink";
 import { type ScoreEntry, formatScoreDate } from "./high-scores.js";
-import { colors, getRankColor } from "./theme.js";
+import { useThemeColors, getThemedRankColor, useTheme } from "./useTheme.js";
 
 interface LeaderboardProps {
   /** Game title to display */
@@ -51,6 +51,8 @@ export function Leaderboard({
   highlightPosition,
   maxEntries = 10,
 }: LeaderboardProps) {
+  const colors = useThemeColors();
+  const { theme } = useTheme();
   const displayScores = scores.slice(0, maxEntries);
   const hasScores = displayScores.length > 0;
 
@@ -86,7 +88,7 @@ export function Leaderboard({
             return (
               <Box key={index}>
                 <Text
-                  color={getRankColor(position, isHighlighted)}
+                  color={getThemedRankColor(theme, position, isHighlighted)}
                   bold={isHighlighted || position === 1}
                 >
                   {positionStr} {scoreStr} {dateStr}
@@ -155,6 +157,7 @@ export function NewHighScoreBanner({
   score: number;
   formatScore?: (score: number) => string;
 }) {
+  const colors = useThemeColors();
   const positionText =
     position === 1
       ? "1st"

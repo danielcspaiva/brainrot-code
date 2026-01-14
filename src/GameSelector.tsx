@@ -8,7 +8,8 @@
 import { Box, Text, useInput } from "ink";
 import { useState, useCallback } from "react";
 import type { GameInfo, GameDimensions } from "./game-types.js";
-import { colors, navIcons } from "./theme.js";
+import { navIcons } from "./theme.js";
+import { useThemeColors } from "./useTheme.js";
 
 export interface GameSelectorProps {
   /** Available games to select from */
@@ -29,6 +30,7 @@ interface GameCardProps {
 }
 
 function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps) {
+  const colors = useThemeColors();
   const borderColor = isHighlighted ? colors.primary : isSelected ? colors.accent : colors.border;
   const titleColor = isHighlighted ? colors.primary : isSelected ? colors.accent : colors.text;
 
@@ -66,6 +68,7 @@ function GameCard({ game, isSelected, isHighlighted, dimensions }: GameCardProps
 }
 
 function SelectorHeader({ hasFocus }: { hasFocus: boolean }) {
+  const colors = useThemeColors();
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text bold color={colors.primary}>
@@ -81,6 +84,7 @@ function SelectorHeader({ hasFocus }: { hasFocus: boolean }) {
 }
 
 function EmptyState() {
+  const colors = useThemeColors();
   return (
     <Box flexDirection="column" padding={2}>
       <Text color={colors.accent}>No games available</Text>

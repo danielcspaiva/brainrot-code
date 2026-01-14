@@ -6,7 +6,8 @@
 import { Box, Text, useInput } from "ink";
 import type { ReactNode } from "react";
 import type { SplitDirection } from "./use-layout-state.js";
-import { colors, boxChars, navIcons } from "./theme.js";
+import { boxChars, navIcons } from "./theme.js";
+import { useThemeColors } from "./useTheme.js";
 
 export interface SplitPaneProps {
   /** First pane content (left/top) */
@@ -45,6 +46,7 @@ interface DividerProps {
 }
 
 function Divider({ direction, width, height, isResizing }: DividerProps) {
+  const colors = useThemeColors();
   const color = isResizing ? colors.primary : colors.border;
 
   if (direction === "horizontal") {
@@ -96,6 +98,8 @@ export function SplitPane({
   handleInput = true,
   resizeStep = 0.05,
 }: SplitPaneProps) {
+  const colors = useThemeColors();
+
   // Handle keyboard input for resizing
   useInput(
     (_input, key) => {
@@ -229,6 +233,7 @@ export function Pane({
   width,
   height,
 }: PaneProps) {
+  const colors = useThemeColors();
   const titleColor = isFocused ? colors.primary : colors.textMuted;
 
   return (

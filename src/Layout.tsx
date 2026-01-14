@@ -12,7 +12,8 @@ import {
   MIN_HEIGHT,
 } from "./use-terminal-size.js";
 import { useLayoutState, type UseLayoutStateOptions } from "./use-layout-state.js";
-import { colors, navIcons } from "./theme.js";
+import { navIcons } from "./theme.js";
+import { useThemeColors } from "./useTheme.js";
 
 export interface LayoutProps {
   /** Content for the game area (left/top pane) */
@@ -46,6 +47,7 @@ function TooSmallWarning({
   minWidth,
   minHeight,
 }: TooSmallWarningProps) {
+  const colors = useThemeColors();
   return (
     <Box
       flexDirection="column"
@@ -121,6 +123,7 @@ export function Layout({
 }: LayoutProps) {
   const terminalSize = useTerminalSize();
   const layout = useLayoutState(layoutOptions);
+  const colors = useThemeColors();
 
   // Handle layout-specific keyboard shortcuts
   useInput(

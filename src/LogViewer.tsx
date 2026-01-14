@@ -8,7 +8,7 @@
 import { Box, Text, useInput } from "ink";
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
-import { colors } from "./theme.js";
+import { useThemeColors } from "./useTheme.js";
 
 export interface LogViewerProps {
   /** Array of log outputs from Claude Code */
@@ -104,6 +104,7 @@ function LogLineDisplay({
   showTimestamp: boolean;
   viewMode: "condensed" | "full";
 }) {
+  const colors = useThemeColors();
   const textColor = line.type === "stderr" ? colors.error : colors.text;
 
   return (
@@ -172,6 +173,7 @@ function LogViewerHeader({
   autoScroll: boolean;
   hasFocus: boolean;
 }) {
+  const colors = useThemeColors();
   return (
     <Box justifyContent="space-between" marginBottom={1}>
       <Box>

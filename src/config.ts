@@ -74,8 +74,8 @@ export interface LayoutPreferences {
  * Theme settings for visual customization
  */
 export interface ThemePreferences {
-  /** Color scheme - future support for multiple themes */
-  colorScheme?: "default" | "dark" | "light" | "high-contrast";
+  /** Color scheme - multiple themes available */
+  colorScheme?: "default" | "dark" | "light" | "retro";
   /** Border style for panels */
   borderStyle?: "single" | "round" | "double" | "heavy";
   /** Spinner animation style */

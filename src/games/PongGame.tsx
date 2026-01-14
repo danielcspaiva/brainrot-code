@@ -10,7 +10,8 @@ import { useState, useCallback, useEffect } from "react";
 import type { GameComponentProps, GameInfo } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
-import { colors, gameColors, boxChars, gameChars } from "../theme.js";
+import { boxChars, gameChars } from "../theme.js";
+import { useThemeColors, useGameColors } from "../useTheme.js";
 
 /** Pong game metadata */
 export const pongGameInfo: GameInfo = {
@@ -79,6 +80,8 @@ interface GameBoardProps {
 }
 
 function GameBoard({ state, width, height }: GameBoardProps) {
+  const colors = useThemeColors();
+  const gameColors = useGameColors();
   const board: string[][] = [];
 
   // Initialize empty board
@@ -182,6 +185,7 @@ function ScoreDisplay({
   aiScore: number;
   fps: number;
 }) {
+  const gameColors = useGameColors();
   return (
     <Box justifyContent="space-between" paddingX={1}>
       <Box>
@@ -205,6 +209,7 @@ function ScoreDisplay({
 }
 
 function GameOverOverlay({ winner }: { winner: "player" | "ai" }) {
+  const colors = useThemeColors();
   return (
     <Box
       flexDirection="column"
@@ -221,6 +226,7 @@ function GameOverOverlay({ winner }: { winner: "player" | "ai" }) {
 }
 
 function PausedOverlay() {
+  const colors = useThemeColors();
   return (
     <Box
       flexDirection="column"

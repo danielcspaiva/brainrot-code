@@ -7,7 +7,8 @@
 
 import { Box, Text, useInput } from "ink";
 import { useState, useCallback, useMemo } from "react";
-import { colors, navIcons } from "./theme.js";
+import { navIcons } from "./theme.js";
+import { useThemeColors } from "./useTheme.js";
 import {
   type BrainrotConfig,
   type ThemePreferences,
@@ -57,10 +58,10 @@ function getThemeSettings(theme: ThemePreferences): SettingOption[] {
       key: "colorScheme",
       value: theme.colorScheme ?? "default",
       options: [
-        { label: "Default", value: "default" },
-        { label: "Dark", value: "dark" },
-        { label: "Light", value: "light" },
-        { label: "High Contrast", value: "high-contrast" },
+        { label: "Default (Cyan/Magenta)", value: "default" },
+        { label: "Dark (Blue/Purple)", value: "dark" },
+        { label: "Light (High Contrast)", value: "light" },
+        { label: "Retro (Green Terminal)", value: "retro" },
       ],
       type: "select",
     },
@@ -222,6 +223,7 @@ interface TabHeaderProps {
 }
 
 function TabHeader({ tabs, activeTab }: TabHeaderProps) {
+  const colors = useThemeColors();
   return (
     <Box marginBottom={1}>
       {tabs.map((tab, index) => (
@@ -246,6 +248,7 @@ interface SettingRowProps {
 }
 
 function SettingRow({ setting, isSelected, isEditing }: SettingRowProps) {
+  const colors = useThemeColors();
   const borderColor = isSelected ? colors.primary : colors.border;
   const labelColor = isSelected ? colors.primary : colors.text;
 
@@ -284,6 +287,7 @@ interface SettingsFooterProps {
 }
 
 function SettingsFooter({ hasChanges, isSaving }: SettingsFooterProps) {
+  const colors = useThemeColors();
   return (
     <Box flexDirection="column" marginTop={1} paddingTop={1} borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} borderColor={colors.border}>
       <Box>
@@ -325,6 +329,7 @@ export function SettingsMenu({
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const colors = useThemeColors();
 
   const tabs = useMemo<{ id: SettingsTab; label: string }[]>(
     () => [
