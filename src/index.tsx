@@ -21,6 +21,7 @@ import { ResumeOverlay, type ResumeAction } from "./ResumeOverlay.js";
 import { FeaturePromptScreen } from "./FeaturePromptScreen.js";
 import { DynamicInterviewFlow, type InterviewResult } from "./DynamicInterviewFlow.js";
 import { PrdGenerationScreen, type GeneratedPrd } from "./PrdGenerationScreen.js";
+import { TaskBreakdownScreen } from "./TaskBreakdownScreen.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -278,7 +279,9 @@ function AppContent() {
   const [showResumeOverlay, setShowResumeOverlay] = useState(false);
   const [resumeOverlayDismissed, setResumeOverlayDismissed] = useState(false);
   const [showPrdGeneration, setShowPrdGeneration] = useState(false);
+  const [showTaskBreakdown, setShowTaskBreakdown] = useState(false);
   const [currentInterviewResult, setCurrentInterviewResult] = useState<InterviewResult | null>(null);
+  const [currentGeneratedPrd, setCurrentGeneratedPrd] = useState<GeneratedPrd | null>(null);
   const terminalSize = useTerminalSize();
 
   // Check if this is a first-time user (no existing loop state)
@@ -333,29 +336,41 @@ function AppContent() {
     setShowPrdGeneration(true);
   }, []);
 
-  // Handle PRD generation completion
+  // Handle PRD generation completion - show task breakdown screen
   const handlePrdGenerationComplete = useCallback((generatedPrd: GeneratedPrd) => {
     setShowPrdGeneration(false);
+    // Store the generated PRD for display in task breakdown screen
+    setCurrentGeneratedPrd(generatedPrd);
+    // Show task breakdown screen
+    setShowTaskBreakdown(true);
+  }, []);
+
+  // Handle task breakdown screen continue - store PRD and tasks
+  const handleTaskBreakdownContinue = useCallback(() => {
+    setShowTaskBreakdown(false);
+    if (!currentGeneratedPrd) return;
+
     // Store the generated PRD and tasks in loop state
     if (loopState.state.prd) {
-      loopState.state.prd.content = generatedPrd.fullContent;
+      loopState.state.prd.content = currentGeneratedPrd.fullContent;
       loopState.state.prd.raw = {
         interview: currentInterviewResult,
-        generated: generatedPrd,
+        generated: currentGeneratedPrd,
       };
     }
     // Set tasks from the generated PRD
     loopState.setPrdAndTasks(
       loopState.state.prd ?? {
         name: currentInterviewResult?.featureDescription ?? "Feature",
-        description: generatedPrd.overview,
-        content: generatedPrd.fullContent,
+        description: currentGeneratedPrd.overview,
+        content: currentGeneratedPrd.fullContent,
       },
-      generatedPrd.taskBreakdown
+      currentGeneratedPrd.taskBreakdown
     );
-    // Clear the interview result
+    // Clear the interview result and generated PRD
     setCurrentInterviewResult(null);
-  }, [loopState, currentInterviewResult]);
+    setCurrentGeneratedPrd(null);
+  }, [loopState, currentInterviewResult, currentGeneratedPrd]);
 
   // Handle PRD generation cancellation
   const handlePrdGenerationCancel = useCallback(() => {
@@ -453,9 +468,9 @@ function AppContent() {
       return;
     }
 
-    // When onboarding, feature prompt, interview flow, PRD generation, or resume overlay is shown, only handle Ctrl+C (above)
+    // When onboarding, feature prompt, interview flow, PRD generation, task breakdown, or resume overlay is shown, only handle Ctrl+C (above)
     // These components handle their own keyboard input
-    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showResumeOverlay) {
+    if (showOnboarding || showFeaturePrompt || showInterviewFlow || showPrdGeneration || showTaskBreakdown || showResumeOverlay) {
       return;
     }
 
@@ -584,8 +599,28 @@ function AppContent() {
           />
         </Box>
       )}
+      {/* Task Breakdown screen - shown after PRD generation */}
+      {showTaskBreakdown && currentGeneratedPrd && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && (
+        <Box
+          position="absolute"
+          width={terminalSize.width}
+          height={terminalSize.height}
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <TaskBreakdownScreen
+            isVisible={showTaskBreakdown}
+            tasks={currentGeneratedPrd.taskBreakdown}
+            featureName={currentInterviewResult?.featureDescription ?? loopState.state.prd?.name ?? "Feature"}
+            onContinue={handleTaskBreakdownContinue}
+            hasFocus={showTaskBreakdown}
+            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+          />
+        </Box>
+      )}
       {/* Resume overlay - full-screen modal for returning users */}
-      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && (
+      {showResumeOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && (
         <Box
           position="absolute"
           width={terminalSize.width}
@@ -604,13 +639,13 @@ function AppContent() {
         </Box>
       )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showResumeOverlay && (
+      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showResumeOverlay && (
+      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -619,7 +654,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showResumeOverlay}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -646,7 +681,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showResumeOverlay}
+        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay}
       />
     </ThemeProvider>
   );

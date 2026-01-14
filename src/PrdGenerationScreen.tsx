@@ -228,96 +228,134 @@ function generateTaskBreakdown(
   complexity: "small" | "medium" | "large"
 ): LoopTask[] {
   const tasks: LoopTask[] = [];
-  let taskId = 1;
+  let taskNum = 1;
 
-  // Initial setup task
+  // Initial setup task (Task 1 - no dependencies)
+  const setupTaskId = `task-${taskNum}`;
   tasks.push({
-    id: `task-${taskId++}`,
-    title: "Project setup and initial scaffolding",
+    id: setupTaskId,
+    title: `${taskNum}. Project setup and initial scaffolding`,
     description: "Set up project structure and initial configuration",
     status: "pending",
     complexity: "small",
+    dependsOn: [],
   });
+  taskNum++;
+
+  // Track core task IDs for dependency chaining
+  const coreTaskIds: string[] = [];
 
   // Core implementation task(s) based on complexity
   if (complexity === "small") {
+    const coreTaskId = `task-${taskNum}`;
+    coreTaskIds.push(coreTaskId);
     tasks.push({
-      id: `task-${taskId++}`,
-      title: `Implement ${featureDescription.slice(0, 50)}`,
+      id: coreTaskId,
+      title: `${taskNum}. Implement ${featureDescription.slice(0, 40)}`,
       description: "Core feature implementation",
       status: "pending",
       complexity: "small",
+      dependsOn: [setupTaskId],
     });
+    taskNum++;
   } else {
+    const coreLogicTaskId = `task-${taskNum}`;
+    coreTaskIds.push(coreLogicTaskId);
     tasks.push({
-      id: `task-${taskId++}`,
-      title: "Implement core feature logic",
+      id: coreLogicTaskId,
+      title: `${taskNum}. Implement core feature logic`,
       description: "Build the main functionality",
       status: "pending",
       complexity: complexity === "large" ? "medium" : "small",
+      dependsOn: [setupTaskId],
     });
+    taskNum++;
 
     if (answers.scope_type === "web" || answers.scope_type === "mobile") {
+      const uiTaskId = `task-${taskNum}`;
+      coreTaskIds.push(uiTaskId);
       tasks.push({
-        id: `task-${taskId++}`,
-        title: "Build user interface components",
+        id: uiTaskId,
+        title: `${taskNum}. Build user interface components`,
         description: "Create UI components and views",
         status: "pending",
         complexity: "medium",
+        dependsOn: [coreLogicTaskId],
       });
+      taskNum++;
     }
 
     if (answers.scope_type === "backend") {
+      const apiTaskId = `task-${taskNum}`;
+      coreTaskIds.push(apiTaskId);
       tasks.push({
-        id: `task-${taskId++}`,
-        title: "Create API endpoints",
+        id: apiTaskId,
+        title: `${taskNum}. Create API endpoints`,
         description: "Implement REST API routes and handlers",
         status: "pending",
         complexity: "medium",
+        dependsOn: [coreLogicTaskId],
       });
+      taskNum++;
     }
   }
 
+  // Track last task ID for dependency chaining
+  let lastTaskId = coreTaskIds[coreTaskIds.length - 1] ?? setupTaskId;
+
   // Integration task
   if (answers.integration_external && answers.integration_external !== "none") {
+    const integrationTaskId = `task-${taskNum}`;
     tasks.push({
-      id: `task-${taskId++}`,
-      title: "Set up external integrations",
+      id: integrationTaskId,
+      title: `${taskNum}. Set up external integrations`,
       description: `Integrate with ${answers.integration_external.replace("_", " ")}`,
       status: "pending",
       complexity: "medium",
+      dependsOn: [lastTaskId],
     });
+    lastTaskId = integrationTaskId;
+    taskNum++;
   }
 
   // Testing task
   if (answers.tech_testing && answers.tech_testing !== "manual") {
+    const testingTaskId = `task-${taskNum}`;
     tasks.push({
-      id: `task-${taskId++}`,
-      title: "Write tests",
+      id: testingTaskId,
+      title: `${taskNum}. Write tests`,
       description: `Create ${answers.tech_testing} tests`,
       status: "pending",
       complexity: complexity === "small" ? "small" : "medium",
+      dependsOn: [lastTaskId],
     });
+    lastTaskId = testingTaskId;
+    taskNum++;
   }
 
   // Documentation task for larger features
   if (complexity !== "small" && answers.priority_focus === "docs") {
+    const docsTaskId = `task-${taskNum}`;
     tasks.push({
-      id: `task-${taskId++}`,
-      title: "Write documentation",
+      id: docsTaskId,
+      title: `${taskNum}. Write documentation`,
       description: "Create comprehensive documentation",
       status: "pending",
       complexity: "small",
+      dependsOn: [lastTaskId],
     });
+    lastTaskId = docsTaskId;
+    taskNum++;
   }
 
   // Final review task
   tasks.push({
-    id: `task-${taskId++}`,
-    title: "Code review and final polish",
+    id: `task-${taskNum}`,
+    title: `${taskNum}. Code review and final polish`,
     description: "Review implementation and fix any issues",
     status: "pending",
     complexity: "small",
+    dependsOn: [lastTaskId],
   });
 
   return tasks;
@@ -386,10 +424,14 @@ function compilePrdContent(
 
   // Task Breakdown
   sections.push("## Task Breakdown\n");
-  taskBreakdown.forEach((task, i) => {
-    sections.push(`${i + 1}. **${task.title}** (${task.complexity})`);
+  taskBreakdown.forEach((task) => {
+    sections.push(`- **${task.title}** [${task.complexity}]`);
     if (task.description) {
-      sections.push(`   ${task.description}`);
+      sections.push(`  - ${task.description}`);
+    }
+    if (task.dependsOn && task.dependsOn.length > 0) {
+      const depNums = task.dependsOn.map((dep) => dep.replace("task-", "#")).join(", ");
+      sections.push(`  - Dependencies: ${depNums}`);
     }
   });
   sections.push("");
