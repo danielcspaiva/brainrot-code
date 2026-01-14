@@ -1,34 +1,9 @@
 #!/usr/bin/env node
 import { render, Box, Text, useInput, useApp } from "ink";
-import { useState } from "react";
-import {
-  useClaudeCode,
-  type ClaudeCodeOutput,
-} from "./use-claude-code.js";
-import type { ProcessError } from "./claude-code-process.js";
+import { useClaudeCode } from "./use-claude-code.js";
+import { useRalphLoopWithClaudeOutput } from "./use-ralph-loop.js";
 import { Layout } from "./Layout.js";
-
-function StatusIndicator({ status }: { status: string }) {
-  const statusColors: Record<string, string> = {
-    idle: "gray",
-    starting: "yellow",
-    running: "green",
-    stopping: "yellow",
-    stopped: "gray",
-    crashed: "red",
-  };
-
-  return (
-    <Text color={statusColors[status] ?? "white"}>
-      [{status.toUpperCase()}]
-    </Text>
-  );
-}
-
-function OutputLine({ item }: { item: ClaudeCodeOutput }) {
-  const color = item.type === "stderr" ? "red" : "white";
-  return <Text color={color}>{item.content}</Text>;
-}
+import { LoopManagementPanel } from "./LoopManagementPanel.js";
 
 /** Game area placeholder - will be replaced with actual game */
 function GameArea() {
@@ -37,60 +12,8 @@ function GameArea() {
       <Text color="yellow">Game Area</Text>
       <Text dimColor>Games will appear here while Claude Code works.</Text>
       <Box marginTop={1}>
-        <Text>🎮 Coming soon...</Text>
+        <Text>Coming soon...</Text>
       </Box>
-    </Box>
-  );
-}
-
-/** Management area with Claude Code output and controls */
-function ManagementArea({
-  status,
-  output,
-  error,
-  inputBuffer,
-}: {
-  status: string;
-  output: ClaudeCodeOutput[];
-  error: ProcessError | null;
-  inputBuffer: string;
-}) {
-  // Show last 10 lines of output
-  const recentOutput = output.slice(-10);
-
-  return (
-    <Box flexDirection="column" padding={1}>
-      <Box>
-        <StatusIndicator status={status} />
-        <Text> </Text>
-        <Text dimColor>
-          Ctrl+S: {status === "running" ? "Stop" : "Start"}
-        </Text>
-      </Box>
-
-      {error && (
-        <Box marginTop={1}>
-          <Text color="red">Error: {error.message}</Text>
-        </Box>
-      )}
-
-      {recentOutput.length > 0 && (
-        <Box marginTop={1} flexDirection="column">
-          <Text dimColor>── Output ──</Text>
-          {recentOutput.map((item, idx) => (
-            <OutputLine key={idx} item={item} />
-          ))}
-        </Box>
-      )}
-
-      {inputBuffer && (
-        <Box marginTop={1}>
-          <Text>
-            {">"} {inputBuffer}
-            <Text color="cyan">▋</Text>
-          </Text>
-        </Box>
-      )}
     </Box>
   );
 }
@@ -119,8 +42,10 @@ function Footer() {
 
 function App() {
   const { exit } = useApp();
-  const { status, output, error, spawn, stop } = useClaudeCode();
-  const [inputBuffer, setInputBuffer] = useState("");
+  const { status, output, spawn, stop } = useClaudeCode();
+
+  // Use Ralph loop parsing for the output
+  const ralphLoop = useRalphLoopWithClaudeOutput(output);
 
   useInput((input, key) => {
     if (key.ctrl && input === "c") {
@@ -137,30 +62,24 @@ function App() {
       }
       return;
     }
-
-    // Build input buffer (simplified - real implementation would handle more keys)
-    if (key.return) {
-      setInputBuffer("");
-    } else if (key.backspace || key.delete) {
-      setInputBuffer((prev) => prev.slice(0, -1));
-    } else if (input && !key.ctrl && !key.meta) {
-      setInputBuffer((prev) => prev + input);
-    }
   });
 
   return (
     <Layout
       gameArea={<GameArea />}
       managementArea={
-        <ManagementArea
-          status={status}
-          output={output}
-          error={error}
-          inputBuffer={inputBuffer}
+        <LoopManagementPanel
+          loopState={ralphLoop.state}
+          needsAttention={ralphLoop.needsAttention}
+          statusMessage={ralphLoop.statusMessage}
+          progressString={ralphLoop.progressString}
+          processStatus={status}
+          onStart={spawn}
+          onStop={() => void stop()}
         />
       }
       gameTitle="Game"
-      managementTitle="Claude Code"
+      managementTitle="Loop Management"
       header={<Header />}
       footer={<Footer />}
       layoutOptions={{
