@@ -19,6 +19,7 @@ import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
 import { StatusBar, GameStatusProvider, useGameStatus } from "./StatusBar.js";
+import { HelpOverlay } from "./HelpOverlay.js";
 
 // ============================================================================
 // CLI OVERRIDE CONTEXT
@@ -262,6 +263,7 @@ function AppContent() {
   const { status, output, spawn, stop } = useClaudeCode(claudeCodeOptions);
   const [focusedPane, setFocusedPane] = useState<0 | 1>(0);
   const [loopAlertDismissed, setLoopAlertDismissed] = useState(false);
+  const [showHelpOverlay, setShowHelpOverlay] = useState(false);
   const terminalSize = useTerminalSize();
 
   // Use Ralph loop parsing for the output
@@ -288,6 +290,16 @@ function AppContent() {
     setLoopAlertDismissed(true);
   }, []);
 
+  // Toggle help overlay
+  const handleToggleHelp = useCallback(() => {
+    setShowHelpOverlay((prev) => !prev);
+  }, []);
+
+  // Close help overlay
+  const handleCloseHelp = useCallback(() => {
+    setShowHelpOverlay(false);
+  }, []);
+
   // Reset dismiss state when a new attention request comes in
   useEffect(() => {
     if (ralphLoop.needsAttention) {
@@ -296,8 +308,23 @@ function AppContent() {
   }, [ralphLoop.needsAttention, ralphLoop.state.userAttention.reason, ralphLoop.state.userAttention.prompt]);
 
   useInput((input, key) => {
+    // Ctrl+C always works to exit
     if (key.ctrl && input === "c") {
       void stop().then(() => exit());
+      return;
+    }
+
+    // Help overlay toggle with ? key (works globally)
+    if (input === "?") {
+      handleToggleHelp();
+      return;
+    }
+
+    // When help overlay is shown, only handle escape and ? to close
+    if (showHelpOverlay) {
+      if (key.escape) {
+        handleCloseHelp();
+      }
       return;
     }
 
@@ -335,6 +362,12 @@ function AppContent() {
 
   return (
     <ThemeProvider config={config}>
+      {/* Help overlay - shown above everything */}
+      {showHelpOverlay && (
+        <Box position="absolute" marginTop={1} marginLeft={2}>
+          <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
+        </Box>
+      )}
       {/* Achievement notification overlay */}
       {hasNotifications && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
@@ -345,7 +378,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0}
+            hasFocus={focusedPane === 0 && !showHelpOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -372,6 +405,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
+        handleInput={!showHelpOverlay}
       />
     </ThemeProvider>
   );

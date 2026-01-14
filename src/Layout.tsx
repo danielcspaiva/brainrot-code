@@ -79,7 +79,7 @@ function LayoutHelp({ direction, showSecondary, isSmall }: LayoutHelpProps) {
   if (isSmall) {
     return (
       <Text dimColor>
-        Tab: Focus | H: Toggle pane | R: Reset
+        Tab: Focus | H: Toggle pane | ?: Help
       </Text>
     );
   }
@@ -90,7 +90,7 @@ function LayoutHelp({ direction, showSecondary, isSmall }: LayoutHelpProps) {
   return (
     <Text dimColor>
       Tab: Focus | {resizeKeys} | D: Direction | H: {showSecondary ? "Hide" : "Show"}{" "}
-      pane | R: Reset
+      pane | R: Reset | ?: Help
     </Text>
   );
 }
