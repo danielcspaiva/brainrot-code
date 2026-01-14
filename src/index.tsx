@@ -7,9 +7,10 @@ import { Layout, useTerminalSize } from "./Layout.js";
 import { LoopManagementPanel } from "./LoopManagementPanel.js";
 import { LogViewer } from "./LogViewer.js";
 import { GameSelector } from "./GameSelector.js";
+import { SettingsMenu } from "./SettingsMenu.js";
 import { getGameList, getGameById } from "./games/index.js";
 import { useConfig } from "./use-config.js";
-import { getLayoutOptions, getClaudeCodeOptions, deepMerge, type BrainrotConfig } from "./config.js";
+import { getLayoutOptions, getClaudeCodeOptions, deepMerge, saveConfig, type BrainrotConfig } from "./config.js";
 import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention } from "./game-types.js";
@@ -31,7 +32,7 @@ function useCLIOverrides(): Partial<BrainrotConfig> {
   return useContext(CLIOverridesContext);
 }
 
-type GameAreaMode = "menu" | "logs" | "game";
+type GameAreaMode = "menu" | "logs" | "game" | "settings";
 
 interface GameAreaProps {
   logs: ClaudeCodeOutput[];
@@ -39,10 +40,22 @@ interface GameAreaProps {
   dimensions: GameDimensions;
   loopAttention: LoopAttention;
   onLoopAlertDismiss: () => void;
+  config: BrainrotConfig;
+  onConfigChange: (updates: Partial<BrainrotConfig>) => void;
+  onConfigSave: () => Promise<void>;
 }
 
-/** Game area with mode switching between menu, logs, and active game */
-function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismiss }: GameAreaProps) {
+/** Game area with mode switching between menu, logs, settings, and active game */
+function GameArea({
+  logs,
+  hasFocus,
+  dimensions,
+  loopAttention,
+  onLoopAlertDismiss,
+  config,
+  onConfigChange,
+  onConfigSave,
+}: GameAreaProps) {
   const [mode, setMode] = useState<GameAreaMode>("menu");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
@@ -58,13 +71,23 @@ function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismis
     setMode("menu");
   }, []);
 
+  const handleCloseSettings = useCallback(() => {
+    setMode("menu");
+  }, []);
+
   // Handle mode switching with keyboard
   useInput(
     (input) => {
       if (!hasFocus) return;
 
+      // 'S' to switch to settings view (from menu only)
+      if ((input === "s" || input === "S") && mode === "menu") {
+        setMode("settings");
+        return;
+      }
+
       // 'L' to switch to logs view
-      if ((input === "l" || input === "L") && mode !== "game") {
+      if ((input === "l" || input === "L") && mode !== "game" && mode !== "settings") {
         setMode(mode === "logs" ? "menu" : "logs");
         return;
       }
@@ -75,7 +98,7 @@ function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismis
         return;
       }
     },
-    { isActive: hasFocus && mode !== "game" }
+    { isActive: hasFocus && mode !== "game" && mode !== "settings" }
   );
 
   // Render based on current mode
@@ -90,6 +113,18 @@ function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismis
         </Box>
         <LogViewer logs={logs} hasFocus={hasFocus} initialViewMode="condensed" />
       </Box>
+    );
+  }
+
+  if (mode === "settings") {
+    return (
+      <SettingsMenu
+        config={config}
+        hasFocus={hasFocus}
+        onConfigChange={onConfigChange}
+        onSave={onConfigSave}
+        onClose={handleCloseSettings}
+      />
     );
   }
 
@@ -119,7 +154,7 @@ function GameArea({ logs, hasFocus, dimensions, loopAttention, onLoopAlertDismis
         onSelectGame={handleSelectGame}
       />
       <Box paddingX={1}>
-        <Text dimColor>L: View Logs</Text>
+        <Text dimColor>L: View Logs | S: Settings</Text>
       </Box>
     </Box>
   );
@@ -152,11 +187,28 @@ function App() {
   const { config: fileConfig } = useConfig();
   const cliOverrides = useCLIOverrides();
 
-  // Merge file config with CLI overrides (CLI takes precedence)
+  // Local config state for live preview (before saving)
+  const [localConfigOverrides, setLocalConfigOverrides] = useState<Partial<BrainrotConfig>>({});
+
+  // Merge: file config -> local overrides -> CLI overrides (CLI takes precedence)
   const config = useMemo(
-    () => deepMerge(fileConfig, cliOverrides),
-    [fileConfig, cliOverrides]
+    () => deepMerge(deepMerge(fileConfig, localConfigOverrides), cliOverrides),
+    [fileConfig, localConfigOverrides, cliOverrides]
   );
+
+  // Handle config changes from settings menu (immediate preview)
+  const handleConfigChange = useCallback((updates: Partial<BrainrotConfig>) => {
+    setLocalConfigOverrides((prev) => deepMerge(prev, updates));
+  }, []);
+
+  // Handle saving config to disk
+  const handleConfigSave = useCallback(async () => {
+    // Merge current file config with local overrides and save
+    const configToSave = deepMerge(fileConfig, localConfigOverrides);
+    await saveConfig(configToSave);
+    // Clear local overrides since they're now persisted
+    setLocalConfigOverrides({});
+  }, [fileConfig, localConfigOverrides]);
 
   // Get config-derived options
   const layoutOptions = useMemo(() => getLayoutOptions(config), [config]);
@@ -230,6 +282,9 @@ function App() {
           dimensions={gameDimensions}
           loopAttention={loopAttention}
           onLoopAlertDismiss={handleLoopAlertDismiss}
+          config={config}
+          onConfigChange={handleConfigChange}
+          onConfigSave={handleConfigSave}
         />
       }
       managementArea={
