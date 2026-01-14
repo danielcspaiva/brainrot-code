@@ -22,6 +22,7 @@ import { FeaturePromptScreen } from "./FeaturePromptScreen.js";
 import { DynamicInterviewFlow, type InterviewResult } from "./DynamicInterviewFlow.js";
 import { PrdGenerationScreen, type GeneratedPrd } from "./PrdGenerationScreen.js";
 import { TaskBreakdownScreen } from "./TaskBreakdownScreen.js";
+import { PrdOverlay, type PrdOverlayAction } from "./PrdOverlay.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention, GameStateUpdate } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -282,6 +283,7 @@ function AppContent() {
   const [showTaskBreakdown, setShowTaskBreakdown] = useState(false);
   const [currentInterviewResult, setCurrentInterviewResult] = useState<InterviewResult | null>(null);
   const [currentGeneratedPrd, setCurrentGeneratedPrd] = useState<GeneratedPrd | null>(null);
+  const [showPrdOverlay, setShowPrdOverlay] = useState(false);
   const terminalSize = useTerminalSize();
 
   // Check if this is a first-time user (no existing loop state)
@@ -471,6 +473,34 @@ function AppContent() {
     setShowHelpOverlay(false);
   }, []);
 
+  // Toggle PRD overlay
+  const handleTogglePrdOverlay = useCallback(() => {
+    setShowPrdOverlay((prev) => !prev);
+  }, []);
+
+  // Close PRD overlay
+  const handleClosePrdOverlay = useCallback(() => {
+    setShowPrdOverlay(false);
+  }, []);
+
+  // Handle PRD overlay action
+  const handlePrdOverlayAction = useCallback((action: PrdOverlayAction) => {
+    setShowPrdOverlay(false);
+    switch (action) {
+      case "resume":
+        // Resume the loop - just close the overlay
+        break;
+      case "new_loop":
+        // Clear existing loop and start fresh
+        loopState.clear();
+        setShowFeaturePrompt(true);
+        break;
+      case "full_prd":
+        // For now, just close - could open a detailed PRD view in the future
+        break;
+    }
+  }, [loopState]);
+
   // Reset dismiss state when a new attention request comes in
   useEffect(() => {
     if (ralphLoop.needsAttention) {
@@ -497,10 +527,24 @@ function AppContent() {
       return;
     }
 
+    // PRD overlay toggle with P key (works globally when no other modal is open)
+    if ((input === "p" || input === "P") && !showHelpOverlay) {
+      handleTogglePrdOverlay();
+      return;
+    }
+
     // When help overlay is shown, only handle escape and ? to close
     if (showHelpOverlay) {
       if (key.escape) {
         handleCloseHelp();
+      }
+      return;
+    }
+
+    // When PRD overlay is shown, only handle escape and P to close
+    if (showPrdOverlay) {
+      if (key.escape) {
+        handleClosePrdOverlay();
       }
       return;
     }
@@ -655,14 +699,34 @@ function AppContent() {
           />
         </Box>
       )}
+      {/* PRD overlay - triggered by P key */}
+      {showPrdOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && (
+        <Box
+          position="absolute"
+          width={terminalSize.width}
+          height={terminalSize.height}
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <PrdOverlay
+            isVisible={showPrdOverlay}
+            loopState={loopState.state}
+            onAction={handlePrdOverlayAction}
+            onClose={handleClosePrdOverlay}
+            hasFocus={showPrdOverlay}
+            dimensions={{ width: terminalSize.width, height: terminalSize.height }}
+          />
+        </Box>
+      )}
       {/* Help overlay - shown above everything */}
-      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && (
+      {showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay && (
         <Box position="absolute" marginTop={1} marginLeft={2}>
           <HelpOverlay hasFocus={showHelpOverlay} onClose={handleCloseHelp} />
         </Box>
       )}
       {/* Achievement notification overlay */}
-      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && (
+      {hasNotifications && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay && (
         <Box position="absolute" marginTop={3} marginLeft={5}>
           {NotificationComponent}
         </Box>
@@ -671,7 +735,7 @@ function AppContent() {
         gameArea={
           <GameArea
             logs={output}
-            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay}
+            hasFocus={focusedPane === 0 && !showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay}
             dimensions={gameDimensions}
             loopAttention={loopAttention}
             onLoopAlertDismiss={handleLoopAlertDismiss}
@@ -698,7 +762,7 @@ function AppContent() {
         header={<Header />}
         footer={<StatusBarFooter loopStatus={effectiveLoopStatus} needsAttention={ralphLoop.needsAttention} />}
         layoutOptions={layoutOptions}
-        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay}
+        handleInput={!showHelpOverlay && !showOnboarding && !showFeaturePrompt && !showInterviewFlow && !showPrdGeneration && !showTaskBreakdown && !showResumeOverlay && !showPrdOverlay}
       />
     </ThemeProvider>
   );
