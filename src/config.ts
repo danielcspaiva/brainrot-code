@@ -257,8 +257,9 @@ export async function ensureDataDir(): Promise<void> {
 
 /**
  * Deep merge two objects, with source taking precedence
+ * Exported for use in CLI override merging
  */
-function deepMerge<T extends object>(target: T, source: Partial<T>): T {
+export function deepMerge<T extends object>(target: T, source: Partial<T>): T {
   const result = { ...target };
 
   for (const key of Object.keys(source) as (keyof T)[]) {

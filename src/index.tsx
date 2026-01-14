@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { render, Box, Text, useInput, useApp } from "ink";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, createContext, useContext } from "react";
 import { useClaudeCode } from "./use-claude-code.js";
 import { useRalphLoopWithClaudeOutput } from "./use-ralph-loop.js";
 import { Layout, useTerminalSize } from "./Layout.js";
@@ -9,10 +9,27 @@ import { LogViewer } from "./LogViewer.js";
 import { GameSelector } from "./GameSelector.js";
 import { getGameList, getGameById } from "./games/index.js";
 import { useConfig } from "./use-config.js";
-import { getLayoutOptions, getClaudeCodeOptions } from "./config.js";
+import { getLayoutOptions, getClaudeCodeOptions, deepMerge, type BrainrotConfig } from "./config.js";
+import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention } from "./game-types.js";
 import { colors } from "./theme.js";
+
+// ============================================================================
+// CLI OVERRIDE CONTEXT
+// ============================================================================
+
+/**
+ * Context for passing CLI overrides to the app
+ */
+const CLIOverridesContext = createContext<Partial<BrainrotConfig>>({});
+
+/**
+ * Hook to access CLI overrides
+ */
+function useCLIOverrides(): Partial<BrainrotConfig> {
+  return useContext(CLIOverridesContext);
+}
 
 type GameAreaMode = "menu" | "logs" | "game";
 
@@ -132,7 +149,14 @@ function Footer() {
 
 function App() {
   const { exit } = useApp();
-  const { config } = useConfig();
+  const { config: fileConfig } = useConfig();
+  const cliOverrides = useCLIOverrides();
+
+  // Merge file config with CLI overrides (CLI takes precedence)
+  const config = useMemo(
+    () => deepMerge(fileConfig, cliOverrides),
+    [fileConfig, cliOverrides]
+  );
 
   // Get config-derived options
   const layoutOptions = useMemo(() => getLayoutOptions(config), [config]);
@@ -228,4 +252,42 @@ function App() {
   );
 }
 
-render(<App />);
+// ============================================================================
+// CLI PARSING AND STARTUP
+// ============================================================================
+
+/**
+ * Main entry point - parses CLI args and renders the app
+ */
+function main(): void {
+  // Parse CLI arguments
+  const { args, error } = parseCLI();
+
+  // Handle parsing errors
+  if (error) {
+    printError(error);
+    process.exit(1);
+  }
+
+  // Handle --help flag
+  if (args.help) {
+    printHelp();
+    process.exit(0);
+  }
+
+  // Handle --version flag
+  if (args.version) {
+    printVersion();
+    process.exit(0);
+  }
+
+  // Render the app with CLI overrides
+  render(
+    <CLIOverridesContext.Provider value={args.overrides}>
+      <App />
+    </CLIOverridesContext.Provider>
+  );
+}
+
+// Run main
+main();
