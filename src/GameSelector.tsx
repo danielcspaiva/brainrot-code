@@ -6,10 +6,11 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { GameInfo, GameDimensions } from "./game-types.js";
 import { navIcons } from "./theme.js";
 import { useThemeColors } from "./useTheme.js";
+import { getAchievementCount } from "./stats.js";
 
 export interface GameSelectorProps {
   /** Available games to select from */
@@ -20,6 +21,8 @@ export interface GameSelectorProps {
   dimensions: GameDimensions;
   /** Callback when a game is selected */
   onSelectGame: (gameId: string) => void;
+  /** Callback when stats menu is requested */
+  onOpenStats?: () => void;
 }
 
 interface GameCardProps {
@@ -76,9 +79,48 @@ function SelectorHeader({ hasFocus }: { hasFocus: boolean }) {
       </Text>
       <Text dimColor>
         {hasFocus
-          ? "↑/↓: Navigate | Enter: Select | Q: Back to Logs"
+          ? "↑/↓: Navigate | Enter: Select | S: Stats | Q: Back"
           : "Press Tab to focus game selector"}
       </Text>
+    </Box>
+  );
+}
+
+interface StatsMenuCardProps {
+  isHighlighted: boolean;
+  dimensions: GameDimensions;
+  achievementCount: { unlocked: number; total: number };
+}
+
+function StatsMenuCard({ isHighlighted, dimensions, achievementCount }: StatsMenuCardProps) {
+  const colors = useThemeColors();
+  const borderColor = isHighlighted ? colors.warning : colors.border;
+  const titleColor = isHighlighted ? colors.warning : colors.textMuted;
+  const cardWidth = Math.min(Math.max(dimensions.width - 4, 30), 50);
+
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={borderColor}
+      paddingX={1}
+      width={cardWidth}
+    >
+      <Box>
+        <Text bold color={titleColor}>
+          {isHighlighted ? `${navIcons.arrowRight} ` : "  "}
+          Stats & Achievements
+        </Text>
+      </Box>
+      <Text dimColor>
+        View your gameplay statistics and unlock achievements
+      </Text>
+      <Box marginTop={1}>
+        <Text color={colors.textMuted}>Progress: </Text>
+        <Text color={colors.success}>
+          {achievementCount.unlocked}/{achievementCount.total} achievements
+        </Text>
+      </Box>
     </Box>
   );
 }
@@ -101,42 +143,67 @@ export function GameSelector({
   hasFocus,
   dimensions,
   onSelectGame,
+  onOpenStats,
 }: GameSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [achievementCount, setAchievementCount] = useState({ unlocked: 0, total: 0 });
+
+  // Total items: games + stats menu
+  const totalItems = games.length + 1;
+  const statsIndex = games.length; // Stats is always last
+
+  // Load achievement count
+  useEffect(() => {
+    const loadCount = async () => {
+      const count = await getAchievementCount();
+      setAchievementCount(count);
+    };
+    void loadCount();
+  }, []);
 
   const handleSelect = useCallback(() => {
-    if (games.length > 0 && games[selectedIndex]) {
+    if (selectedIndex === statsIndex) {
+      onOpenStats?.();
+    } else if (games.length > 0 && games[selectedIndex]) {
       onSelectGame(games[selectedIndex].id);
     }
-  }, [games, selectedIndex, onSelectGame]);
+  }, [games, selectedIndex, onSelectGame, onOpenStats, statsIndex]);
 
   useInput(
     (input, key) => {
-      if (!hasFocus || games.length === 0) return;
+      if (!hasFocus) return;
 
       // Navigate up
       if (key.upArrow || input === "k") {
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : games.length - 1));
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
         return;
       }
 
       // Navigate down
       if (key.downArrow || input === "j") {
-        setSelectedIndex((prev) => (prev < games.length - 1 ? prev + 1 : 0));
+        setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
         return;
       }
 
-      // Select game
+      // Select item
       if (key.return || input === " ") {
         handleSelect();
         return;
       }
 
-      // Quick select by number (1-9)
+      // Quick open stats with S key
+      if (input === "s" || input === "S") {
+        onOpenStats?.();
+        return;
+      }
+
+      // Quick select game by number (1-9)
       const num = parseInt(input, 10);
       if (!isNaN(num) && num >= 1 && num <= games.length) {
         setSelectedIndex(num - 1);
-        handleSelect();
+        if (games[num - 1]) {
+          onSelectGame(games[num - 1].id);
+        }
         return;
       }
     },
@@ -144,8 +211,8 @@ export function GameSelector({
   );
 
   // Keep selected index in bounds
-  if (selectedIndex >= games.length && games.length > 0) {
-    setSelectedIndex(games.length - 1);
+  if (selectedIndex >= totalItems && totalItems > 0) {
+    setSelectedIndex(totalItems - 1);
   }
 
   return (
@@ -165,14 +232,23 @@ export function GameSelector({
               dimensions={dimensions}
             />
           ))}
+
+          {/* Stats & Achievements menu item */}
+          <StatsMenuCard
+            isHighlighted={hasFocus && selectedIndex === statsIndex}
+            dimensions={dimensions}
+            achievementCount={achievementCount}
+          />
         </Box>
       )}
 
-      {/* Game count indicator */}
-      {games.length > 0 && (
+      {/* Item count indicator */}
+      {totalItems > 0 && (
         <Box marginTop={1}>
           <Text dimColor>
-            Game {selectedIndex + 1} of {games.length}
+            {selectedIndex === statsIndex
+              ? "Stats & Achievements"
+              : `Game ${selectedIndex + 1} of ${games.length}`}
           </Text>
         </Box>
       )}

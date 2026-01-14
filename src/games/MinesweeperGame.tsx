@@ -10,6 +10,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { useBestTimes } from "../use-high-scores.js";
+import { useGameSession } from "../use-stats.js";
 import { Leaderboard, formatTime } from "../Leaderboard.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 
@@ -427,6 +428,7 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState(0);
   const scoreSubmittedRef = useRef(false);
+  const statsSubmittedRef = useRef(false);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
@@ -434,6 +436,9 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
   const { bestTime, leaderboard, submitTime } = useBestTimes(
     getGameIdForDifficulty(state.difficultyIndex)
   );
+
+  // Stats tracking
+  const { startSession, endSession, isSessionActive } = useGameSession("minesweeper");
 
   // Auto-pause when loop needs attention
   useEffect(() => {
@@ -462,6 +467,13 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
   const { bestTime: hardBest } = useBestTimes("minesweeper-hard");
   const allBestTimes = [easyBest, mediumBest, hardBest];
 
+  // Start session when game starts
+  useEffect(() => {
+    if (state.status === "playing" && !isSessionActive) {
+      startSession();
+    }
+  }, [state.status, isSessionActive, startSession]);
+
   // Submit time when game is won
   useEffect(() => {
     if (state.status === "won" && !scoreSubmittedRef.current && state.timeElapsed > 0) {
@@ -473,6 +485,19 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
       });
     }
   }, [state.status, state.timeElapsed, state.difficultyIndex, submitTime]);
+
+  // Record stats when game ends
+  useEffect(() => {
+    if ((state.status === "won" || state.status === "lost") && !statsSubmittedRef.current) {
+      statsSubmittedRef.current = true;
+      const won = state.status === "won";
+      const customStats: Record<string, number> = {};
+      if (won && state.timeElapsed > 0) {
+        customStats.fastestWin = state.timeElapsed;
+      }
+      void endSession(0, won, Object.keys(customStats).length > 0 ? customStats : undefined);
+    }
+  }, [state.status, state.timeElapsed, endSession]);
 
   // Game timer
   useEffect(() => {
@@ -737,6 +762,7 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
       // Restart
       if (input === "r" || input === "R") {
         scoreSubmittedRef.current = false;
+        statsSubmittedRef.current = false;
         setState(createInitialState(state.difficultyIndex));
         return;
       }

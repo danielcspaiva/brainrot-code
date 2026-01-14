@@ -8,10 +8,13 @@ import { LoopManagementPanel } from "./LoopManagementPanel.js";
 import { LogViewer } from "./LogViewer.js";
 import { GameSelector } from "./GameSelector.js";
 import { SettingsMenu } from "./SettingsMenu.js";
+import { StatsMenu } from "./StatsMenu.js";
+import { useAchievementNotifications } from "./AchievementNotification.js";
 import { getGameList, getGameById } from "./games/index.js";
 import { useConfig } from "./use-config.js";
 import { getLayoutOptions, getClaudeCodeOptions, deepMerge, saveConfig, type BrainrotConfig } from "./config.js";
 import { parseCLI, printHelp, printVersion, printError } from "./cli.js";
+import { recordSessionStart } from "./stats.js";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import type { GameDimensions, LoopAttention } from "./game-types.js";
 import { ThemeProvider, useThemeColors } from "./useTheme.js";
@@ -32,7 +35,7 @@ function useCLIOverrides(): Partial<BrainrotConfig> {
   return useContext(CLIOverridesContext);
 }
 
-type GameAreaMode = "menu" | "logs" | "game" | "settings";
+type GameAreaMode = "menu" | "logs" | "game" | "settings" | "stats";
 
 interface GameAreaProps {
   logs: ClaudeCodeOutput[];
@@ -43,9 +46,10 @@ interface GameAreaProps {
   config: BrainrotConfig;
   onConfigChange: (updates: Partial<BrainrotConfig>) => void;
   onConfigSave: () => Promise<void>;
+  onAchievementUnlock: (ids: string[]) => void;
 }
 
-/** Game area with mode switching between menu, logs, settings, and active game */
+/** Game area with mode switching between menu, logs, settings, stats, and active game */
 function GameArea({
   logs,
   hasFocus,
@@ -55,6 +59,7 @@ function GameArea({
   config,
   onConfigChange,
   onConfigSave,
+  onAchievementUnlock: _onAchievementUnlock,
 }: GameAreaProps) {
   const [mode, setMode] = useState<GameAreaMode>("menu");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -76,19 +81,27 @@ function GameArea({
     setMode("menu");
   }, []);
 
+  const handleOpenStats = useCallback(() => {
+    setMode("stats");
+  }, []);
+
+  const handleCloseStats = useCallback(() => {
+    setMode("menu");
+  }, []);
+
   // Handle mode switching with keyboard
   useInput(
-    (input) => {
+    (input, key) => {
       if (!hasFocus) return;
 
-      // 'S' to switch to settings view (from menu only)
-      if ((input === "s" || input === "S") && mode === "menu") {
+      // Ctrl+, to open settings (from menu only)
+      if (key.ctrl && input === "," && mode === "menu") {
         setMode("settings");
         return;
       }
 
       // 'L' to switch to logs view
-      if ((input === "l" || input === "L") && mode !== "game" && mode !== "settings") {
+      if ((input === "l" || input === "L") && mode !== "game" && mode !== "settings" && mode !== "stats") {
         setMode(mode === "logs" ? "menu" : "logs");
         return;
       }
@@ -99,7 +112,7 @@ function GameArea({
         return;
       }
     },
-    { isActive: hasFocus && mode !== "game" && mode !== "settings" }
+    { isActive: hasFocus && mode !== "game" && mode !== "settings" && mode !== "stats" }
   );
 
   // Render based on current mode
@@ -129,6 +142,15 @@ function GameArea({
     );
   }
 
+  if (mode === "stats") {
+    return (
+      <StatsMenu
+        hasFocus={hasFocus}
+        onClose={handleCloseStats}
+      />
+    );
+  }
+
   if (mode === "game" && selectedGameId) {
     const gameEntry = getGameById(selectedGameId);
     if (gameEntry) {
@@ -153,9 +175,10 @@ function GameArea({
         hasFocus={hasFocus}
         dimensions={dimensions}
         onSelectGame={handleSelectGame}
+        onOpenStats={handleOpenStats}
       />
       <Box paddingX={1}>
-        <Text dimColor>L: View Logs | S: Settings</Text>
+        <Text dimColor>L: View Logs | Ctrl+,: Settings</Text>
       </Box>
     </Box>
   );
@@ -188,9 +211,15 @@ function App() {
   const { exit } = useApp();
   const { config: fileConfig } = useConfig();
   const cliOverrides = useCLIOverrides();
+  const { addAchievements, NotificationComponent, hasNotifications } = useAchievementNotifications();
 
   // Local config state for live preview (before saving)
   const [localConfigOverrides, setLocalConfigOverrides] = useState<Partial<BrainrotConfig>>({});
+
+  // Record session start on mount
+  useEffect(() => {
+    void recordSessionStart();
+  }, []);
 
   // Merge: file config -> local overrides -> CLI overrides (CLI takes precedence)
   const config = useMemo(
@@ -277,6 +306,12 @@ function App() {
 
   return (
     <ThemeProvider config={config}>
+      {/* Achievement notification overlay */}
+      {hasNotifications && (
+        <Box position="absolute" marginTop={3} marginLeft={5}>
+          {NotificationComponent}
+        </Box>
+      )}
       <Layout
         gameArea={
           <GameArea
@@ -288,6 +323,7 @@ function App() {
             config={config}
             onConfigChange={handleConfigChange}
             onConfigSave={handleConfigSave}
+            onAchievementUnlock={addAchievements}
           />
         }
         managementArea={

@@ -10,6 +10,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { useHighScores } from "../use-high-scores.js";
+import { useGameSession } from "../use-stats.js";
 import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 
@@ -521,11 +522,15 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
   const lastDropTime = useRef(0);
   const clearAnimTimer = useRef(0);
   const scoreSubmittedRef = useRef(false);
+  const statsSubmittedRef = useRef(false);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
   // High score persistence
   const { highScore, leaderboard, submitScore } = useHighScores("tetris");
+
+  // Stats tracking
+  const { startSession, endSession, isSessionActive } = useGameSession("tetris");
 
   // Auto-pause when loop needs attention
   useEffect(() => {
@@ -548,6 +553,13 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
     }
   }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
 
+  // Start session when game starts
+  useEffect(() => {
+    if (state.status === "playing" && !isSessionActive) {
+      startSession();
+    }
+  }, [state.status, isSessionActive, startSession]);
+
   // Submit score when game ends
   useEffect(() => {
     if (state.status === "game_over" && !scoreSubmittedRef.current && state.score > 0) {
@@ -558,7 +570,13 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
         }
       });
     }
-  }, [state.status, state.score, state.level, state.lines, submitScore]);
+
+    // Record stats when game ends
+    if (state.status === "game_over" && !statsSubmittedRef.current) {
+      statsSubmittedRef.current = true;
+      void endSession(state.score, undefined, { linesCleared: state.lines });
+    }
+  }, [state.status, state.score, state.level, state.lines, submitScore, endSession]);
 
   // Lock piece and check for lines
   const lockPiece = useCallback(() => {
@@ -812,6 +830,7 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
       // Restart
       if (input === "r" || input === "R") {
         scoreSubmittedRef.current = false;
+        statsSubmittedRef.current = false;
         setState(createInitialState());
         lastDropTime.current = 0;
         clearAnimTimer.current = 0;

@@ -17,6 +17,7 @@ import {
 } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { useHighScores } from "../use-high-scores.js";
+import { useGameSession } from "../use-stats.js";
 import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 
@@ -252,11 +253,15 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
 
   const [lastMoveTime, setLastMoveTime] = useState(0);
   const scoreSubmittedRef = useRef(false);
+  const statsSubmittedRef = useRef(false);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
   // High score persistence
   const { highScore, leaderboard, submitScore } = useHighScores("snake");
+
+  // Stats tracking
+  const { startSession, endSession, isSessionActive } = useGameSession("snake");
 
   // Auto-pause when loop needs attention
   useEffect(() => {
@@ -287,7 +292,14 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
     }));
   }, [boardWidth, boardHeight]);
 
-  // Submit score when game ends
+  // Start session when game starts
+  useEffect(() => {
+    if (state.status === "playing" && !isSessionActive) {
+      startSession();
+    }
+  }, [state.status, isSessionActive, startSession]);
+
+  // Submit score and stats when game ends
   useEffect(() => {
     if (state.status === "game_over" && !scoreSubmittedRef.current && state.score > 0) {
       scoreSubmittedRef.current = true;
@@ -297,7 +309,13 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
         }
       });
     }
-  }, [state.status, state.score, submitScore]);
+
+    // Record stats when game ends
+    if (state.status === "game_over" && !statsSubmittedRef.current) {
+      statsSubmittedRef.current = true;
+      void endSession(state.score);
+    }
+  }, [state.status, state.score, submitScore, endSession]);
 
   const moveSnake = useCallback(() => {
     setState((prev) => {
@@ -380,6 +398,7 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
       // Restart
       if (input === "r" || input === "R") {
         scoreSubmittedRef.current = false;
+        statsSubmittedRef.current = false;
         setState(createInitialState(boardWidth, boardHeight));
         setLastMoveTime(0);
         return;

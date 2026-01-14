@@ -6,9 +6,10 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { GameComponentProps, GameInfo } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
+import { useGameSession } from "../use-stats.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 import { boxChars, gameChars } from "../theme.js";
 import { useThemeColors, useGameColors } from "../useTheme.js";
@@ -256,11 +257,31 @@ export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAl
   const [playerDirection, setPlayerDirection] = useState<-1 | 0 | 1>(0);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
+  const statsSubmittedRef = useRef(false);
+
+  // Stats tracking
+  const { startSession, endSession, isSessionActive } = useGameSession("pong");
 
   // Reset game when dimensions change
   useEffect(() => {
     setState(createInitialState(boardWidth, boardHeight));
   }, [boardWidth, boardHeight]);
+
+  // Start session when game starts
+  useEffect(() => {
+    if (state.status === "playing" && !isSessionActive) {
+      startSession();
+    }
+  }, [state.status, isSessionActive, startSession]);
+
+  // Record stats when game ends
+  useEffect(() => {
+    if (state.status === "game_over" && !statsSubmittedRef.current) {
+      statsSubmittedRef.current = true;
+      const won = state.winner === "player";
+      void endSession(state.playerScore, won);
+    }
+  }, [state.status, state.winner, state.playerScore, endSession]);
 
   // Auto-pause when loop needs attention
   useEffect(() => {
@@ -434,6 +455,7 @@ export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAl
 
       // Restart
       if (input === "r" || input === "R") {
+        statsSubmittedRef.current = false;
         setState(createInitialState(boardWidth, boardHeight));
         return;
       }
