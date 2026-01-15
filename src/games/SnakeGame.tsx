@@ -20,6 +20,7 @@ import { useHighScores } from "../use-high-scores.js";
 import { useGameSession } from "../use-stats.js";
 import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
+import { useThemeColors, useGameColors } from "../useTheme.js";
 
 /** Snake game metadata */
 export const snakeGameInfo: GameInfo = {
@@ -91,6 +92,9 @@ interface GameBoardProps {
 }
 
 function GameBoard({ snake, food, width, height }: GameBoardProps) {
+  const colors = useThemeColors();
+  const gameColors = useGameColors();
+
   // Build the board as a 2D array
   const board: string[][] = [];
 
@@ -148,13 +152,13 @@ function GameBoard({ snake, food, width, height }: GameBoardProps) {
             const isFood = food.x === x && food.y === y;
 
             if (isSnakeHead) {
-              color = "green";
+              color = gameColors.player;
             } else if (isSnakeBody) {
-              color = "greenBright";
+              color = gameColors.bonus;
             } else if (isFood) {
-              color = "red";
+              color = gameColors.item;
             } else if (cell !== " ") {
-              color = "gray";
+              color = colors.border;
             }
 
             return (

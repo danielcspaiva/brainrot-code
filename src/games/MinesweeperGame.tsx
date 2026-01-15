@@ -6,13 +6,14 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { useBestTimes } from "../use-high-scores.js";
 import { useGameSession } from "../use-stats.js";
 import { Leaderboard, formatTime } from "../Leaderboard.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
+import { useThemeColors, useGameColors } from "../useTheme.js";
 
 /** Minesweeper game metadata */
 export const minesweeperGameInfo: GameInfo = {
@@ -204,49 +205,21 @@ function createInitialState(difficultyIndex: number): MinesweeperState {
   };
 }
 
-/** Get cell display character */
-function getCellDisplay(
-  cell: Cell,
-  isCursor: boolean,
-  gameOver: boolean
-): { char: string; color?: string; bgColor?: string } {
-  const bgColor = isCursor ? "blue" : undefined;
+/** Hook to get theme-aware number colors for adjacent mine counts */
+function useNumberColors(): Record<number, string> {
+  const colors = useThemeColors();
+  const gameColors = useGameColors();
 
-  if (!cell.revealed) {
-    if (cell.flagged) {
-      // Show incorrect flags on game over
-      if (gameOver && !cell.hasMine) {
-        return { char: "✗", color: "red", bgColor };
-      }
-      return { char: "⚑", color: "red", bgColor };
-    }
-    return { char: "■", color: "gray", bgColor };
-  }
-
-  if (cell.hasMine) {
-    return { char: "💣", color: "red", bgColor };
-  }
-
-  if (cell.adjacentMines === 0) {
-    return { char: " ", bgColor };
-  }
-
-  const colors: Record<number, string> = {
-    1: "blue",
-    2: "green",
-    3: "red",
-    4: "#000080", // Dark blue
-    5: "#800000", // Maroon
-    6: "cyan",
-    7: "black",
-    8: "gray",
-  };
-
-  return {
-    char: cell.adjacentMines.toString(),
-    color: colors[cell.adjacentMines] || "white",
-    bgColor,
-  };
+  return useMemo(() => ({
+    1: colors.info,         // Blue in default theme
+    2: colors.success,      // Green in default theme
+    3: colors.error,        // Red in default theme
+    4: colors.secondary,    // Magenta/Dark blue in default theme
+    5: gameColors.obstacle, // Red/Maroon in default theme
+    6: colors.primary,      // Cyan in default theme
+    7: colors.text,         // Text color
+    8: colors.textMuted,    // Gray in default theme
+  }), [colors, gameColors]);
 }
 
 /** Game board component */
@@ -259,21 +232,57 @@ function GameBoard({
   cursor: Point;
   status: GameStatus;
 }) {
+  const colors = useThemeColors();
+  const gameColors = useGameColors();
+  const numberColors = useNumberColors();
   const width = board[0].length;
   const gameOver = status === "won" || status === "lost";
+
+  /** Get cell display character with theme-aware colors */
+  const getCellDisplay = useCallback((
+    cell: Cell,
+    isCursor: boolean
+  ): { char: string; color?: string; bgColor?: string } => {
+    const bgColor = isCursor ? colors.primary : undefined;
+
+    if (!cell.revealed) {
+      if (cell.flagged) {
+        // Show incorrect flags on game over
+        if (gameOver && !cell.hasMine) {
+          return { char: "✗", color: colors.error, bgColor };
+        }
+        return { char: "⚑", color: gameColors.obstacle, bgColor };
+      }
+      return { char: "■", color: colors.textMuted, bgColor };
+    }
+
+    if (cell.hasMine) {
+      return { char: "💣", color: colors.error, bgColor };
+    }
+
+    if (cell.adjacentMines === 0) {
+      return { char: " ", bgColor };
+    }
+
+    return {
+      char: cell.adjacentMines.toString(),
+      color: numberColors[cell.adjacentMines] || colors.text,
+      bgColor,
+    };
+  }, [colors, gameColors, numberColors, gameOver]);
 
   return (
     <Box flexDirection="column">
       {/* Top border */}
-      <Text color="gray">{"┌" + "──".repeat(width) + "┐"}</Text>
+      <Text color={colors.border}>{"┌" + "──".repeat(width) + "┐"}</Text>
 
       {/* Board rows */}
       {board.map((row, y) => (
         <Box key={y}>
-          <Text color="gray">│</Text>
+          <Text color={colors.border}>│</Text>
           {row.map((cell, x) => {
             const isCursor = x === cursor.x && y === cursor.y;
-            const display = getCellDisplay(cell, isCursor, gameOver);
+            const display = getCellDisplay(cell, isCursor);
             return (
               <Text
                 key={x}
@@ -284,12 +293,12 @@ function GameBoard({
               </Text>
             );
           })}
-          <Text color="gray">│</Text>
+          <Text color={colors.border}>│</Text>
         </Box>
       ))}
 
       {/* Bottom border */}
-      <Text color="gray">{"└" + "──".repeat(width) + "┘"}</Text>
+      <Text color={colors.border}>{"└" + "──".repeat(width) + "┘"}</Text>
     </Box>
   );
 }

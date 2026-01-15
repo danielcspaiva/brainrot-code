@@ -6,13 +6,14 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
 import { useGameLoop } from "../use-game-loop.js";
 import { useHighScores } from "../use-high-scores.js";
 import { useGameSession } from "../use-stats.js";
 import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
 import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
+import { useThemeColors, useGameColors } from "../useTheme.js";
 
 /** Tetris game metadata */
 export const tetrisGameInfo: GameInfo = {
@@ -31,13 +32,12 @@ type TetrominoType = "I" | "O" | "T" | "S" | "Z" | "J" | "L";
 interface Tetromino {
   type: TetrominoType;
   blocks: Point[];
-  color: string;
 }
 
 /** Board cell state */
 interface Cell {
   filled: boolean;
-  color?: string;
+  pieceType?: TetrominoType;
 }
 
 /** Game state */
@@ -63,7 +63,7 @@ const BOARD_HEIGHT = 20;
 /** Piece definitions with their rotations */
 const PIECE_DEFINITIONS: Record<
   TetrominoType,
-  { blocks: Point[]; color: string }
+  { blocks: Point[] }
 > = {
   I: {
     blocks: [
@@ -72,7 +72,6 @@ const PIECE_DEFINITIONS: Record<
       { x: 2, y: 1 },
       { x: 3, y: 1 },
     ],
-    color: "cyan",
   },
   O: {
     blocks: [
@@ -81,7 +80,6 @@ const PIECE_DEFINITIONS: Record<
       { x: 0, y: 1 },
       { x: 1, y: 1 },
     ],
-    color: "yellow",
   },
   T: {
     blocks: [
@@ -90,7 +88,6 @@ const PIECE_DEFINITIONS: Record<
       { x: 1, y: 1 },
       { x: 2, y: 1 },
     ],
-    color: "magenta",
   },
   S: {
     blocks: [
@@ -99,7 +96,6 @@ const PIECE_DEFINITIONS: Record<
       { x: 0, y: 1 },
       { x: 1, y: 1 },
     ],
-    color: "green",
   },
   Z: {
     blocks: [
@@ -108,7 +104,6 @@ const PIECE_DEFINITIONS: Record<
       { x: 1, y: 1 },
       { x: 2, y: 1 },
     ],
-    color: "red",
   },
   J: {
     blocks: [
@@ -117,7 +112,6 @@ const PIECE_DEFINITIONS: Record<
       { x: 1, y: 1 },
       { x: 2, y: 1 },
     ],
-    color: "blue",
   },
   L: {
     blocks: [
@@ -126,9 +120,24 @@ const PIECE_DEFINITIONS: Record<
       { x: 1, y: 1 },
       { x: 2, y: 1 },
     ],
-    color: "#FFA500", // Orange
   },
 };
+
+/** Hook to get theme-aware piece colors */
+function usePieceColors(): Record<TetrominoType, string> {
+  const colors = useThemeColors();
+  const gameColors = useGameColors();
+
+  return useMemo(() => ({
+    I: colors.primary,      // Cyan in default theme
+    O: colors.accent,       // Yellow in default theme
+    T: colors.secondary,    // Magenta in default theme
+    S: colors.success,      // Green in default theme
+    Z: colors.error,        // Red in default theme
+    J: colors.info,         // Cyan/Blue in default theme
+    L: gameColors.item,     // Yellow/Orange in default theme
+  }), [colors, gameColors]);
+}
 
 const PIECE_TYPES: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
 
@@ -138,7 +147,6 @@ function createPiece(type: TetrominoType): Tetromino {
   return {
     type,
     blocks: [...def.blocks],
-    color: def.color,
   };
 }
 
@@ -230,7 +238,7 @@ function placePiece(
     const x = position.x + block.x;
     const y = position.y + block.y;
     if (y >= 0 && y < BOARD_HEIGHT && x >= 0 && x < BOARD_WIDTH) {
-      newBoard[y][x] = { filled: true, color: piece.color };
+      newBoard[y][x] = { filled: true, pieceType: piece.type };
     }
   }
 
@@ -305,6 +313,7 @@ function createInitialState(): TetrisState {
 
 /** Next piece preview component */
 function NextPiecePreview({ pieceType }: { pieceType: TetrominoType }) {
+  const pieceColors = usePieceColors();
   const piece = createPiece(pieceType);
   const grid: string[][] = Array(4)
     .fill(null)
@@ -328,7 +337,7 @@ function NextPiecePreview({ pieceType }: { pieceType: TetrominoType }) {
       {grid.map((row, y) => (
         <Box key={y}>
           {row.map((cell, x) => (
-            <Text key={x} color={cell === "█" ? piece.color : undefined}>
+            <Text key={x} color={cell === "█" ? pieceColors[pieceType] : undefined}>
               {cell}
             </Text>
           ))}
@@ -352,11 +361,14 @@ function GameBoard({
   clearingLines: number[];
   clearAnimFrame: number;
 }) {
+  const colors = useThemeColors();
+  const pieceColors = usePieceColors();
+
   // Create display board
-  const display: { char: string; color?: string }[][] = board.map((row, _y) =>
+  const display: { char: string; pieceType?: TetrominoType }[][] = board.map((row, _y) =>
     row.map((cell) => {
       if (cell.filled) {
-        return { char: "█", color: cell.color };
+        return { char: "█", pieceType: cell.pieceType };
       }
       return { char: " " };
     })
@@ -368,7 +380,7 @@ function GameBoard({
       const x = piecePosition.x + block.x;
       const y = piecePosition.y + block.y;
       if (y >= 0 && y < BOARD_HEIGHT && x >= 0 && x < BOARD_WIDTH) {
-        display[y][x] = { char: "█", color: currentPiece.color };
+        display[y][x] = { char: "█", pieceType: currentPiece.type };
       }
     }
 
@@ -391,48 +403,58 @@ function GameBoard({
           y < BOARD_HEIGHT &&
           x >= 0 &&
           x < BOARD_WIDTH &&
-          !display[y][x].color
+          !display[y][x].pieceType
         ) {
-          display[y][x] = { char: "░", color: "gray" };
+          // Ghost piece uses neutral/muted color
+          display[y][x] = { char: "░" };
         }
       }
     }
   }
 
   // Apply line clearing animation
-  if (clearingLines.length > 0) {
-    const flashOn = clearAnimFrame % 2 === 0;
-    for (const lineY of clearingLines) {
-      for (let x = 0; x < BOARD_WIDTH; x++) {
-        display[lineY][x] = {
-          char: flashOn ? "█" : " ",
-          color: flashOn ? "white" : undefined,
-        };
-      }
-    }
-  }
+  const isClearing = clearingLines.length > 0;
+  const flashOn = clearAnimFrame % 2 === 0;
 
   return (
     <Box flexDirection="column">
       {/* Top border */}
-      <Text color="gray">{"┌" + "──".repeat(BOARD_WIDTH) + "┐"}</Text>
+      <Text color={colors.border}>{"┌" + "──".repeat(BOARD_WIDTH) + "┐"}</Text>
 
       {/* Board rows */}
       {display.map((row, y) => (
         <Box key={y}>
-          <Text color="gray">│</Text>
-          {row.map((cell, x) => (
-            <Text key={x} color={cell.color}>
-              {cell.char}
-              {cell.char}
-            </Text>
-          ))}
-          <Text color="gray">│</Text>
+          <Text color={colors.border}>│</Text>
+          {row.map((cell, x) => {
+            // Line clearing animation
+            if (isClearing && clearingLines.includes(y)) {
+              return (
+                <Text key={x} color={flashOn ? colors.text : undefined}>
+                  {flashOn ? "██" : "  "}
+                </Text>
+              );
+            }
+
+            // Get color based on piece type
+            const cellColor = cell.pieceType
+              ? pieceColors[cell.pieceType]
+              : cell.char === "░"
+                ? colors.textMuted
+                : undefined;
+
+            return (
+              <Text key={x} color={cellColor}>
+                {cell.char}
+                {cell.char}
+              </Text>
+            );
+          })}
+          <Text color={colors.border}>│</Text>
         </Box>
       ))}
 
       {/* Bottom border */}
-      <Text color="gray">{"└" + "──".repeat(BOARD_WIDTH) + "┘"}</Text>
+      <Text color={colors.border}>{"└" + "──".repeat(BOARD_WIDTH) + "┘"}</Text>
     </Box>
   );
 }
