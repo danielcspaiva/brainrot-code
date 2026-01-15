@@ -59,12 +59,25 @@ const PATTERNS = {
   todoProgress: /(?:todo|task)(?:s)?:\s*(\d+)\s*(?:of|\/)\s*(\d+)/i,
   completingTask: /(?:completing|working\s*on|processing)\s*[:=-]?\s*(.+)/i,
 
-  // Agent activity patterns
+  // Agent activity patterns - enhanced for Claude Code tool detection
   toolUse: /(?:using|calling|invoking)\s*(?:tool\s*)?[:=-]?\s*(\w+)/i,
   toolName: /(?:tool|function)\s*[:=-]?\s*["']?(\w+)["']?/i,
-  agentThinking: /(?:thinking|analyzing|processing|reading|writing|searching)/i,
+  agentThinking: /(?:thinking|analyzing|processing|reading|writing|searching|examining|checking|reviewing|exploring)/i,
   agentAction:
-    /(?:creating|updating|modifying|deleting|reading|writing|running|executing)\s+(.+)/i,
+    /(?:creating|updating|modifying|deleting|reading|writing|running|executing|editing|fixing|implementing|adding|removing)\s+(.+)/i,
+
+  // Claude Code specific tool patterns
+  claudeToolRead: /(?:Read|Reading)\s+(?:file|files|from)\s*[:=]?\s*(.+)/i,
+  claudeToolWrite: /(?:Write|Writing)\s+(?:to\s+)?(?:file|files)\s*[:=]?\s*(.+)/i,
+  claudeToolEdit: /(?:Edit|Editing)\s+(?:file|files)\s*[:=]?\s*(.+)/i,
+  claudeToolBash: /(?:Bash|Running|Executing)\s*[:=]?\s*(.+)/i,
+  claudeToolGrep: /(?:Grep|Searching|Search)\s+(?:for|in)\s*[:=]?\s*(.+)/i,
+  claudeToolGlob: /(?:Glob|Finding|Looking\s+for)\s+(?:files?|patterns?)\s*[:=]?\s*(.+)/i,
+  claudeToolTask: /(?:Task|Agent|Subagent)\s*[:=]?\s*(.+)/i,
+  // Match "Using <ToolName>" pattern from Claude Code output
+  usingTool: /\bUsing\s+(\w+)/i,
+  // Match tool invocation markers in Claude Code output
+  toolInvocation: /(?:invoke|call(?:ing)?|run(?:ning)?)\s+(\w+)\s+tool/i,
 
   // User attention patterns
   question: /\?\s*$/,
@@ -215,7 +228,82 @@ function parseAgentActivity(
   const cleanedOutput = cleanOutput(output);
   const activity = { ...currentActivity, timestamp: new Date() };
 
-  // Check for tool usage
+  // Check for Claude Code specific tool patterns first (most specific)
+  const readMatch = cleanedOutput.match(PATTERNS.claudeToolRead);
+  if (readMatch) {
+    activity.isActive = true;
+    activity.toolName = "Read";
+    activity.currentAction = `Reading files...`;
+    return activity;
+  }
+
+  const writeMatch = cleanedOutput.match(PATTERNS.claudeToolWrite);
+  if (writeMatch) {
+    activity.isActive = true;
+    activity.toolName = "Write";
+    activity.currentAction = `Writing code...`;
+    return activity;
+  }
+
+  const editMatch = cleanedOutput.match(PATTERNS.claudeToolEdit);
+  if (editMatch) {
+    activity.isActive = true;
+    activity.toolName = "Edit";
+    activity.currentAction = `Editing files...`;
+    return activity;
+  }
+
+  const bashMatch = cleanedOutput.match(PATTERNS.claudeToolBash);
+  if (bashMatch) {
+    activity.isActive = true;
+    activity.toolName = "Bash";
+    activity.currentAction = `Running command...`;
+    return activity;
+  }
+
+  const grepMatch = cleanedOutput.match(PATTERNS.claudeToolGrep);
+  if (grepMatch) {
+    activity.isActive = true;
+    activity.toolName = "Grep";
+    activity.currentAction = `Searching codebase...`;
+    return activity;
+  }
+
+  const globMatch = cleanedOutput.match(PATTERNS.claudeToolGlob);
+  if (globMatch) {
+    activity.isActive = true;
+    activity.toolName = "Glob";
+    activity.currentAction = `Finding files...`;
+    return activity;
+  }
+
+  const taskMatch = cleanedOutput.match(PATTERNS.claudeToolTask);
+  if (taskMatch) {
+    activity.isActive = true;
+    activity.toolName = "Task";
+    activity.currentAction = `Running agent task...`;
+    return activity;
+  }
+
+  // Check for "Using <ToolName>" pattern
+  const usingToolMatch = cleanedOutput.match(PATTERNS.usingTool);
+  if (usingToolMatch) {
+    activity.isActive = true;
+    activity.toolName = usingToolMatch[1];
+    activity.currentAction = `Using ${usingToolMatch[1]}...`;
+    return activity;
+  }
+
+  // Check for tool invocation pattern
+  const invocationMatch = cleanedOutput.match(PATTERNS.toolInvocation);
+  if (invocationMatch) {
+    activity.isActive = true;
+    activity.toolName = invocationMatch[1];
+    activity.currentAction = `${invocationMatch[1]}...`;
+    return activity;
+  }
+
+  // Check for general tool usage
   const toolUseMatch = cleanedOutput.match(PATTERNS.toolUse);
   if (toolUseMatch) {
     activity.isActive = true;

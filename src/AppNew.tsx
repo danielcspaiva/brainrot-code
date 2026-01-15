@@ -409,6 +409,11 @@ function AppNewContent() {
     }
   }, [loopState.state.startedAt]);
 
+  // Current tool being used (from ralph loop parser)
+  const currentTool = useMemo(() => {
+    return ralphLoop.state.agentActivity.toolName ?? null;
+  }, [ralphLoop.state.agentActivity.toolName]);
+
   // Game dimensions (account for side panel if shown)
   const gameDimensions = useMemo((): GameDimensions => {
     // Full screen minus status bar (2 lines)
@@ -704,6 +709,7 @@ function AppNewContent() {
                       tasks={sidePanelTasks}
                       currentActivity={currentActivity}
                       activityStartedAt={activityStartedAt}
+                      currentTool={currentTool}
                       width={sidePanelSettings.width}
                       height={gameDimensions.height}
                     />
