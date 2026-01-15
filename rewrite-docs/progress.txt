@@ -264,6 +264,29 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 5.2: Configuration system**
+  - Created `src-opentui/config/config.ts` - Core configuration module
+    - All type definitions: GamePreferences, LayoutPreferences, ThemePreferences, ClaudeCodeSettings, RalphLoopSettings, AppSettings, BrainrotConfig
+    - XDG Base Directory convention paths (CONFIG_DIR, DATA_DIR, CONFIG_FILE)
+    - DEFAULT_CONFIG with sensible defaults for all sections
+    - File operations: loadConfig, saveConfig, updateConfig, resetConfig, configExists
+    - Directory management: ensureDataDir, getDataDir, getDataFilePath
+    - Utility functions: deepMerge for config merging
+    - Config helpers: getGameConfig, getLayoutOptions, getClaudeCodeOptions, getRalphLoopOptions, getThemeOptions, getAppSettings, getSidePanelSettings
+    - Added RalphLoopSettings interface for Ralph loop configuration (maxIterations, defaultPrdPath, autoStart, autoSavePrd)
+  - Created `src-opentui/config/useConfig.ts` - React hooks for configuration
+    - useConfig() - Main hook with full config management (config, isLoading, error, reload, update, reset, save)
+    - useLayoutConfig() - Layout options from config
+    - useClaudeCodeConfig() - Claude Code options from config
+    - useRalphLoopConfig() - Ralph loop options from config
+    - useThemeConfig() - Theme options from config
+    - useAppSettings() - App settings from config
+  - Created `src-opentui/config/index.ts` - Centralized exports
+    - Exports all types, constants, functions from config.ts
+    - Exports all hooks from useConfig.ts
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
