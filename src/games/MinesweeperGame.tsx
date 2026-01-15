@@ -294,39 +294,34 @@ function GameBoard({
   );
 }
 
-/** HUD component */
-function GameHUD({
+/** Compact horizontal stats bar */
+function GameStats({
   minesRemaining,
   timeElapsed,
   difficulty,
   bestTime,
-  fps,
 }: {
   minesRemaining: number;
   timeElapsed: number;
   difficulty: string;
   bestTime: number;
-  fps: number;
 }) {
   return (
-    <Box flexDirection="column" marginLeft={1}>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text bold>Mines</Text>
-        <Text color="red">{minesRemaining.toString().padStart(3, " ")}</Text>
-      </Box>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text bold>Time</Text>
+    <Box paddingX={1} gap={2}>
+      <Text>
+        <Text bold>Mines:</Text>{" "}
+        <Text color="red">{minesRemaining.toString().padStart(2, " ")}</Text>
+      </Text>
+      <Text>
+        <Text bold>Time:</Text>{" "}
         <Text color="yellow">{formatTime(timeElapsed)}</Text>
-      </Box>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text bold>Level</Text>
-        <Text color="cyan">{difficulty}</Text>
-      </Box>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text dimColor>Best</Text>
-        <Text dimColor>{formatTime(bestTime)}</Text>
-      </Box>
-      <Text dimColor>{fps} FPS</Text>
+      </Text>
+      <Text>
+        <Text bold color="cyan">{difficulty}</Text>
+      </Text>
+      <Text dimColor>
+        Best: {formatTime(bestTime)}
+      </Text>
     </Box>
   );
 }
@@ -736,8 +731,8 @@ export function MinesweeperGame({
     });
   }, []);
 
-  // Game loop for FPS display
-  const { loopInfo } = useGameLoop({
+  // Game loop
+  useGameLoop({
     targetFps: 10, // Low FPS needed, mostly cursor-driven
     isActive: hasFocus && state.status === "playing",
   });
@@ -848,7 +843,7 @@ export function MinesweeperGame({
   const diff = DIFFICULTIES[state.difficultyIndex];
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" height="100%" overflow="hidden">
       {state.status === "selecting_difficulty" ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">
           <DifficultySelector
@@ -889,20 +884,17 @@ export function MinesweeperGame({
         </Box>
       ) : state.status === "won" || state.status === "lost" ? (
         <Box flexDirection="column" flexGrow={1}>
-          <Box>
-            <GameBoard
-              board={state.board}
-              cursor={state.cursor}
-              status={state.status}
-            />
-            <GameHUD
-              minesRemaining={state.minesRemaining}
-              timeElapsed={state.timeElapsed}
-              difficulty={diff.name}
-              bestTime={bestTime}
-              fps={loopInfo.fps}
-            />
-          </Box>
+          <GameStats
+            minesRemaining={state.minesRemaining}
+            timeElapsed={state.timeElapsed}
+            difficulty={diff.name}
+            bestTime={bestTime}
+          />
+          <GameBoard
+            board={state.board}
+            cursor={state.cursor}
+            status={state.status}
+          />
           <GameOverOverlay
             won={state.status === "won"}
             timeElapsed={state.timeElapsed}
@@ -910,31 +902,20 @@ export function MinesweeperGame({
           />
         </Box>
       ) : (
-        <Box flexGrow={1}>
+        <Box flexDirection="column" flexGrow={1}>
+          <GameStats
+            minesRemaining={state.minesRemaining}
+            timeElapsed={state.timeElapsed}
+            difficulty={diff.name}
+            bestTime={bestTime}
+          />
           <GameBoard
             board={state.board}
             cursor={state.cursor}
             status={state.status}
           />
-          <GameHUD
-            minesRemaining={state.minesRemaining}
-            timeElapsed={state.timeElapsed}
-            difficulty={diff.name}
-            bestTime={bestTime}
-            fps={loopInfo.fps}
-          />
         </Box>
       )}
-
-      <Box paddingX={1}>
-        <Text dimColor>
-          {hasFocus
-            ? state.status === "leaderboard"
-              ? "H: Back | R: Restart | D: Difficulty | Q: Exit"
-              : "←→↑↓: Move | Space: Reveal | F: Flag | D: Difficulty | R: Restart | H: Times | Q: Exit"
-            : "Press Tab to focus"}
-        </Text>
-      </Box>
     </Box>
   );
 }

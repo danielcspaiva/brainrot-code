@@ -483,39 +483,30 @@ function PausedOverlay() {
   );
 }
 
-/** HUD component */
-function GameHUD({
+/** Compact horizontal stats bar */
+function GameStats({
   score,
   highScore,
   level,
   lines,
-  fps,
 }: {
   score: number;
   highScore: number;
   level: number;
   lines: number;
-  fps: number;
 }) {
   return (
-    <Box flexDirection="column" marginLeft={1}>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text bold>Score</Text>
-        <Text color="yellow">{score}</Text>
-      </Box>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text bold>Level</Text>
-        <Text color="cyan">{level}</Text>
-      </Box>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text bold>Lines</Text>
-        <Text color="green">{lines}</Text>
-      </Box>
-      <Box borderStyle="single" flexDirection="column" paddingX={1}>
-        <Text dimColor>High</Text>
-        <Text dimColor>{highScore}</Text>
-      </Box>
-      <Text dimColor>{fps} FPS</Text>
+    <Box paddingX={1} gap={2}>
+      <Text>
+        <Text bold>Score:</Text> <Text color="yellow">{score}</Text>
+      </Text>
+      <Text>
+        <Text bold>Level:</Text> <Text color="cyan">{level}</Text>
+      </Text>
+      <Text>
+        <Text bold>Lines:</Text> <Text color="green">{lines}</Text>
+      </Text>
+      <Text dimColor>High: {highScore}</Text>
     </Box>
   );
 }
@@ -790,7 +781,7 @@ export function TetrisGame({
   }, []);
 
   // Game loop
-  const { loopInfo } = useGameLoop({
+  useGameLoop({
     targetFps: 30,
     isActive: hasFocus && state.status === "playing",
     onTick: (info) => {
@@ -929,7 +920,7 @@ export function TetrisGame({
   );
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" height="100%" overflow="hidden">
       {state.status === "leaderboard" ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">
           <Leaderboard
@@ -957,36 +948,25 @@ export function TetrisGame({
           <PausedOverlay />
         </Box>
       ) : (
-        <Box flexGrow={1}>
-          <GameBoard
-            board={state.board}
-            currentPiece={state.currentPiece}
-            piecePosition={state.piecePosition}
-            clearingLines={state.clearingLines}
-            clearAnimFrame={state.clearAnimFrame}
+        <Box flexDirection="column" flexGrow={1}>
+          <GameStats
+            score={state.score}
+            highScore={highScore}
+            level={state.level}
+            lines={state.lines}
           />
-          <Box flexDirection="column">
-            <NextPiecePreview pieceType={state.nextPiece} />
-            <GameHUD
-              score={state.score}
-              highScore={highScore}
-              level={state.level}
-              lines={state.lines}
-              fps={loopInfo.fps}
+          <Box flexGrow={1}>
+            <GameBoard
+              board={state.board}
+              currentPiece={state.currentPiece}
+              piecePosition={state.piecePosition}
+              clearingLines={state.clearingLines}
+              clearAnimFrame={state.clearAnimFrame}
             />
+            <NextPiecePreview pieceType={state.nextPiece} />
           </Box>
         </Box>
       )}
-
-      <Box paddingX={1}>
-        <Text dimColor>
-          {hasFocus
-            ? state.status === "leaderboard"
-              ? "H: Back | R: Restart | Q: Exit"
-              : "←→: Move | ↑: Rotate | ↓: Soft | Space: Drop | P: Pause | R: Restart | H: Scores | Q: Exit"
-            : "Press Tab to focus"}
-        </Text>
-      </Box>
     </Box>
   );
 }

@@ -494,7 +494,7 @@ export function SnakeGame({
   );
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" height="100%" overflow="hidden">
       <GameHUD score={state.score} highScore={highScore} fps={loopInfo.fps} />
 
       <Box flexGrow={1} justifyContent="center" alignItems="center">
@@ -524,16 +524,6 @@ export function SnakeGame({
             height={boardHeight}
           />
         )}
-      </Box>
-
-      <Box paddingX={1}>
-        <Text dimColor>
-          {hasFocus
-            ? state.status === "leaderboard"
-              ? "H: Back | R: Restart | Q: Exit"
-              : "Arrow/WASD: Move | P: Pause | R: Restart | H: Scores | Q: Exit"
-            : "Press Tab to focus"}
-        </Text>
       </Box>
     </Box>
   );

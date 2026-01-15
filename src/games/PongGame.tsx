@@ -527,7 +527,7 @@ export function PongGame({
   }, [playerDirection]);
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" height="100%" overflow="hidden">
       <ScoreDisplay
         playerScore={state.playerScore}
         aiScore={state.aiScore}
@@ -547,14 +547,6 @@ export function PongGame({
         ) : (
           <GameBoard state={state} width={boardWidth} height={boardHeight} />
         )}
-      </Box>
-
-      <Box paddingX={1}>
-        <Text dimColor>
-          {hasFocus
-            ? "↑/↓ or W/S: Move | P: Pause | R: Restart | Q: Exit"
-            : "Press Tab to focus"}
-        </Text>
       </Box>
     </Box>
   );
