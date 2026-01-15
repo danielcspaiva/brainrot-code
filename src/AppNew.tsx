@@ -27,7 +27,7 @@ import {
 } from "./config.js";
 import { useLoopState, useLoopStateExists } from "./use-loop-state.js";
 import { getGameById } from "./games/index.js";
-import { ThemeProvider, useThemeColors } from "./useTheme.js";
+import { ThemeProvider, useThemeColors, useTheme } from "./useTheme.js";
 import {
   GameStatusProvider,
   useGameStatus,
@@ -95,6 +95,7 @@ function AppNewContent() {
   const { config: fileConfig } = useConfig();
   const cliOverrides = useCLIOverrides();
   const colors = useThemeColors();
+  const { toggleTheme } = useTheme();
   const terminalSize = useTerminalSize();
 
   // Config
@@ -374,6 +375,7 @@ function AppNewContent() {
         const lastOutput = ralphManager.output[ralphManager.output.length - 1];
         if (lastOutput?.content && lastOutput.content.trim().length > 0) {
           // Extract meaningful content (skip ANSI codes and empty lines)
+          // eslint-disable-next-line no-control-regex
           const cleanContent = lastOutput.content.replace(/\x1b\[[0-9;]*m/g, '').trim();
           if (cleanContent.length > 0) {
             return cleanContent.slice(0, 60);
@@ -500,6 +502,12 @@ function AppNewContent() {
     // G toggles game selector (only in loop_running state)
     if ((input === "g" || input === "G") && appState === "loop_running" && !showLogs) {
       setShowGameSelector((prev) => !prev);
+      return;
+    }
+
+    // T toggles theme (works globally when no modals are open)
+    if ((input === "t" || input === "T") && !showLogs && !showGameSelector) {
+      toggleTheme();
       return;
     }
 

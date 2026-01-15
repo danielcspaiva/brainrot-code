@@ -436,8 +436,8 @@ export class RalphLoopManager extends EventEmitter {
         const chunk = data.toString();
         stdout += chunk;
         outputChunkCount++;
-        // Simple progress indicator - just show bytes received
-        this.emit(RALPH_EVENTS.OUTPUT, { type: "stdout", content: `Processing... (${Math.round(stdout.length / 1024)}KB received)` });
+        // Emit actual output content for real-time streaming
+        this.emit(RALPH_EVENTS.OUTPUT, { type: "stdout", content: chunk });
       });
 
       this.currentProcess.stderr?.on("data", (data: Buffer) => {
