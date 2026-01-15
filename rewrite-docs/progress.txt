@@ -19,6 +19,18 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 1.2: Create basic render loop and App shell**
+  - Implemented application state machine with all states: INIT, PRD_INPUT, LOOP_RUNNING, PAUSED, COMPLETE, ERROR
+  - Added `useTerminalDimensions` hook for responsive layout
+  - Created split-pane layout structure with Claude Panel and Game Panel placeholders
+  - Implemented Tab key focus switching between panels (visual feedback with border style)
+  - Added status bar showing: app state, focus target, terminal dimensions, key hints
+  - Added Ctrl+N to cycle through states (for testing state machine)
+  - Added Ctrl+E to toggle error state (for testing)
+  - Exported TypeScript types: `AppState`, `FocusTarget`, `AppContext`
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
