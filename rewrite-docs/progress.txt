@@ -84,6 +84,33 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 3.2: Implement simplified Ralph loop**
+  - Created `src-opentui/claude/ralph-loop.ts` - RalphLoop class
+    - Event-based orchestration with EventEmitter
+    - PRD loading and validation from prd.json files
+    - PRD document structure: title, tasks, currentTask, iteration, maxIterations
+    - Task structure: id, title, description, status (pending/in_progress/completed), iteration
+    - Loop status tracking: idle, loading_prd, running, waiting_for_input, paused, complete, error
+    - Iteration management with configurable max iterations
+    - Prompt building for Claude based on PRD state
+    - Automatic PRD saving after each iteration
+    - Simple task completion detection from Claude output
+    - Type-safe event listeners: onStatus, onPRDLoaded, onIterationStart, onIterationComplete, onTaskUpdated, onOutput, onError, onComplete
+    - Control methods: runIteration, runLoop, pause, resume, stop, kill, sendInput, updateTask
+  - Created `src-opentui/hooks/useRalphLoop.ts` - React hook
+    - Manages RalphLoop lifecycle within React component
+    - State tracking: status, prd, iteration, maxIterations, currentTask, completedTasks, pendingTasks
+    - Output collection with configurable max lines (default 1000)
+    - Progress calculation (0-100%)
+    - Automatic cleanup on unmount
+    - Optional auto-start after PRD loading
+    - Exposes: loadPRD, runIteration, runLoop, pause, resume, stop, kill, sendInput, updateTask, clearOutput
+    - Returns: status, prd, iteration, maxIterations, currentTask, completedTasks, pendingTasks, output, error, progress, isRunning, isComplete
+  - Updated `src-opentui/claude/index.ts` - Added Ralph loop exports
+  - Updated `src-opentui/hooks/index.ts` - Added useRalphLoop exports
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
