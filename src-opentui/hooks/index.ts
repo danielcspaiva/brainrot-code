@@ -18,3 +18,9 @@ export {
   type IterationResult,
   type RalphLoopOptions,
 } from "./useRalphLoop.js";
+
+export {
+  useGameLoop,
+  type UseGameLoopOptions,
+  type UseGameLoopResult,
+} from "./useGameLoop.js";

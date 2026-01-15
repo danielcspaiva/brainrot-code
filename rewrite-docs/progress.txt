@@ -111,6 +111,34 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+### Phase 4: Games
+
+- [x] **Task 4.1: Port game logic (unchanged)**
+  - Created `src-opentui/game-types.ts` - Game framework types and interfaces
+    - GameStatus, GameInput, GameDimensions, BaseGameState types
+    - GameInfo, LoopAttention, GameStateUpdate, GameComponentProps interfaces
+    - GameRegistryEntry, GameLoopInfo, CanvasCell types
+    - Point, Vector2D, Direction types with utility functions
+    - OpenTUIKeyEvent interface for OpenTUI keyboard handling
+    - createGameInput() function adapted for OpenTUI events
+    - Helper functions: directionToVector, pointsEqual, addVectors
+  - Created `src-opentui/hooks/useGameLoop.ts` - Frame-based game loop hook
+    - Configurable target FPS (default 30)
+    - Rolling FPS average calculation (last 10 frames)
+    - Provides deltaTime, elapsedTime, frameCount
+    - start/stop/toggle/reset controls
+    - Automatic start/stop based on isActive prop
+    - Cleanup on unmount
+  - Created `src-opentui/games/index.ts` - Game registry
+    - gameRegistry array for game components
+    - getGameList() - returns all game info
+    - getGameById(id) - lookup by game ID
+    - hasGame(id) - check if game exists
+    - getGameCount() - total games available
+  - Updated `src-opentui/hooks/index.ts` - Added useGameLoop exports
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
