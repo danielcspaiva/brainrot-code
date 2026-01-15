@@ -6,7 +6,7 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, memo, useCallback } from "react";
 import type { ClaudeCodeOutput } from "./use-claude-code.js";
 import { useThemeColors } from "./useTheme.js";
 
@@ -94,9 +94,9 @@ function processLogs(
 }
 
 /**
- * Single log line component
+ * Single log line component - memoized to prevent unnecessary re-renders during scrolling
  */
-function LogLineDisplay({
+const LogLineDisplay = memo(function LogLineDisplay({
   line,
   showTimestamp,
   viewMode,
@@ -123,12 +123,12 @@ function LogLineDisplay({
       </Text>
     </Box>
   );
-}
+});
 
 /**
- * Scrollbar indicator component
+ * Scrollbar indicator component - memoized for stable rendering
  */
-function ScrollIndicator({
+const ScrollIndicator = memo(function ScrollIndicator({
   currentPosition,
   totalLines,
   visibleLines,
@@ -153,12 +153,12 @@ function ScrollIndicator({
       <Text dimColor>{scrollPercentage > 0 ? "v" : " "}</Text>
     </Box>
   );
-}
+});
 
 /**
- * Log viewer header with controls
+ * Log viewer header with controls - memoized for stable rendering
  */
-function LogViewerHeader({
+const LogViewerHeader = memo(function LogViewerHeader({
   viewMode,
   totalLines,
   autoScroll,
@@ -188,12 +188,38 @@ function LogViewerHeader({
       </Box>
     </Box>
   );
-}
+});
 
 /**
- * Main LogViewer component
+ * Log footer showing scroll position - memoized for stable rendering
  */
-export function LogViewer({
+const LogFooter = memo(function LogFooter({
+  scrollPosition,
+  effectiveHeight,
+  totalLines,
+}: {
+  scrollPosition: number;
+  effectiveHeight: number;
+  totalLines: number;
+}) {
+  if (totalLines <= effectiveHeight) {
+    return null;
+  }
+
+  return (
+    <Box marginTop={1}>
+      <Text dimColor>
+        Lines {scrollPosition + 1}-
+        {Math.min(scrollPosition + effectiveHeight, totalLines)} of {totalLines}
+      </Text>
+    </Box>
+  );
+});
+
+/**
+ * Main LogViewer component - optimized with memoization for flicker-free rendering
+ */
+export const LogViewer = memo(function LogViewer({
   logs,
   maxVisibleLines = 20,
   hasFocus = false,
@@ -207,16 +233,23 @@ export function LogViewer({
   const [autoScroll, setAutoScroll] = useState(true);
   const lastLogCountRef = useRef(logs.length);
 
-  // Process logs into display lines
+  // Process logs into display lines - memoized to prevent reprocessing
   const displayLines = useMemo(
     () => processLogs(logs, viewMode),
     [logs, viewMode]
   );
 
-  // Calculate visible area
-  const effectiveHeight = height ? Math.max(height - 4, 5) : maxVisibleLines;
+  // Calculate visible area - memoized
+  const effectiveHeight = useMemo(
+    () => (height ? Math.max(height - 4, 5) : maxVisibleLines),
+    [height, maxVisibleLines]
+  );
+
   const totalLines = displayLines.length;
-  const maxScroll = Math.max(0, totalLines - effectiveHeight);
+  const maxScroll = useMemo(
+    () => Math.max(0, totalLines - effectiveHeight),
+    [totalLines, effectiveHeight]
+  );
 
   // Auto-scroll when new logs arrive
   useEffect(() => {
@@ -226,6 +259,60 @@ export function LogViewer({
     lastLogCountRef.current = logs.length;
   }, [logs.length, maxScroll, autoScroll]);
 
+  // Memoized scroll handlers using useCallback
+  const handleScrollUp = useCallback(() => {
+    setScrollPosition((pos) => Math.max(0, pos - 1));
+    setAutoScroll(false);
+  }, []);
+
+  const handleScrollDown = useCallback(() => {
+    setScrollPosition((pos) => {
+      const newPos = Math.min(maxScroll, pos + 1);
+      if (newPos === maxScroll) {
+        setAutoScroll(true);
+      }
+      return newPos;
+    });
+  }, [maxScroll]);
+
+  const handlePageUp = useCallback(() => {
+    setScrollPosition((pos) => Math.max(0, pos - effectiveHeight));
+    setAutoScroll(false);
+  }, [effectiveHeight]);
+
+  const handlePageDown = useCallback(() => {
+    setScrollPosition((pos) => {
+      const newPos = Math.min(maxScroll, pos + effectiveHeight);
+      if (newPos === maxScroll) {
+        setAutoScroll(true);
+      }
+      return newPos;
+    });
+  }, [maxScroll, effectiveHeight]);
+
+  const handleJumpTop = useCallback(() => {
+    setScrollPosition(0);
+    setAutoScroll(false);
+  }, []);
+
+  const handleJumpBottom = useCallback(() => {
+    setScrollPosition(maxScroll);
+    setAutoScroll(true);
+  }, [maxScroll]);
+
+  const handleToggleAutoScroll = useCallback(() => {
+    setAutoScroll((current) => {
+      if (!current) {
+        setScrollPosition(maxScroll);
+      }
+      return !current;
+    });
+  }, [maxScroll]);
+
+  const handleToggleViewMode = useCallback(() => {
+    setViewMode((current) => (current === "condensed" ? "full" : "condensed"));
+  }, []);
+
   // Handle keyboard input when focused
   useInput(
     (input, key) => {
@@ -233,84 +320,62 @@ export function LogViewer({
 
       // Toggle view mode with 'v'
       if (input === "v" || input === "V") {
-        setViewMode((current) =>
-          current === "condensed" ? "full" : "condensed"
-        );
+        handleToggleViewMode();
         return;
       }
 
       // Scroll up with 'k' or arrow up
       if (input === "k" || key.upArrow) {
-        setScrollPosition((pos) => Math.max(0, pos - 1));
-        setAutoScroll(false);
+        handleScrollUp();
         return;
       }
 
       // Scroll down with 'j' or arrow down
       if (input === "j" || key.downArrow) {
-        setScrollPosition((pos) => {
-          const newPos = Math.min(maxScroll, pos + 1);
-          // Re-enable auto-scroll if we're at the bottom
-          if (newPos === maxScroll) {
-            setAutoScroll(true);
-          }
-          return newPos;
-        });
+        handleScrollDown();
         return;
       }
 
       // Page up with 'u' or page up
       if (input === "u" || key.pageUp) {
-        setScrollPosition((pos) => Math.max(0, pos - effectiveHeight));
-        setAutoScroll(false);
+        handlePageUp();
         return;
       }
 
       // Page down with 'd' or page down
       if (input === "d" || key.pageDown) {
-        setScrollPosition((pos) => {
-          const newPos = Math.min(maxScroll, pos + effectiveHeight);
-          if (newPos === maxScroll) {
-            setAutoScroll(true);
-          }
-          return newPos;
-        });
+        handlePageDown();
         return;
       }
 
       // Jump to top with 'g'
       if (input === "g") {
-        setScrollPosition(0);
-        setAutoScroll(false);
+        handleJumpTop();
         return;
       }
 
       // Jump to bottom with 'G'
       if (input === "G") {
-        setScrollPosition(maxScroll);
-        setAutoScroll(true);
+        handleJumpBottom();
         return;
       }
 
       // Toggle auto-scroll with 'a'
       if (input === "a" || input === "A") {
-        setAutoScroll((current) => !current);
-        if (!autoScroll) {
-          setScrollPosition(maxScroll);
-        }
+        handleToggleAutoScroll();
         return;
       }
     },
     { isActive: hasFocus }
   );
 
-  // Get visible lines based on scroll position
-  const visibleLines = displayLines.slice(
-    scrollPosition,
-    scrollPosition + effectiveHeight
+  // Get visible lines based on scroll position - memoized for stable rendering
+  const visibleLines = useMemo(
+    () => displayLines.slice(scrollPosition, scrollPosition + effectiveHeight),
+    [displayLines, scrollPosition, effectiveHeight]
   );
 
-  // Show timestamps only in full mode or every few lines in condensed
+  // Show timestamps only in full mode
   const showTimestamps = viewMode === "full";
 
   return (
@@ -345,18 +410,13 @@ export function LogViewer({
         />
       </Box>
 
-      {/* Footer with scroll info */}
-      {totalLines > effectiveHeight && (
-        <Box marginTop={1}>
-          <Text dimColor>
-            Lines {scrollPosition + 1}-
-            {Math.min(scrollPosition + effectiveHeight, totalLines)} of{" "}
-            {totalLines}
-          </Text>
-        </Box>
-      )}
+      <LogFooter
+        scrollPosition={scrollPosition}
+        effectiveHeight={effectiveHeight}
+        totalLines={totalLines}
+      />
     </Box>
   );
-}
+});
 
 export default LogViewer;

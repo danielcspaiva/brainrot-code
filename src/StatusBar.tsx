@@ -13,6 +13,8 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
+  memo,
   type ReactNode,
 } from "react";
 import { useThemeColors, useStatusColors } from "./useTheme.js";
@@ -233,9 +235,9 @@ export interface StatusBarProps {
 }
 
 /**
- * Loop status indicator section
+ * Loop status indicator section - memoized to prevent unnecessary re-renders
  */
-function LoopStatusSection({
+const LoopStatusSection = memo(function LoopStatusSection({
   loopStatus,
   needsAttention,
 }: {
@@ -266,12 +268,12 @@ function LoopStatusSection({
       )}
     </Box>
   );
-}
+});
 
 /**
- * Game info section
+ * Game info section - memoized to prevent unnecessary re-renders
  */
-function GameInfoSection({
+const GameInfoSection = memo(function GameInfoSection({
   gameName,
   score,
   status,
@@ -324,7 +326,7 @@ function GameInfoSection({
       {statusText && <Text color={statusColor}>{statusText}</Text>}
     </Box>
   );
-}
+});
 
 /**
  * Hotkey hint definition
@@ -406,9 +408,9 @@ function getContextualHotkeys(
 }
 
 /**
- * Keyboard hints section - displays contextual hotkeys
+ * Keyboard hints section - displays contextual hotkeys, memoized to prevent unnecessary re-renders
  */
-function KeyHintsSection({
+const KeyHintsSection = memo(function KeyHintsSection({
   isPlaying,
   context = "default",
 }: {
@@ -417,8 +419,11 @@ function KeyHintsSection({
 }) {
   const colors = useThemeColors();
 
-  // Get contextual hotkeys
-  const hints = getContextualHotkeys(context, isPlaying);
+  // Get contextual hotkeys - memoized to prevent recalculation
+  const hints = useMemo(
+    () => getContextualHotkeys(context, isPlaying),
+    [context, isPlaying]
+  );
 
   return (
     <Box>
@@ -431,106 +436,161 @@ function KeyHintsSection({
       ))}
     </Box>
   );
-}
+});
 
 /**
- * Separator between sections
+ * Separator between sections - memoized as it's a static component
  */
-function Separator() {
+const Separator = memo(function Separator() {
   return <Text dimColor> │ </Text>;
-}
+});
 
 /**
- * Loop info section - shows current task, progress, time elapsed, and token usage
+ * Elapsed time display - isolated to prevent timer updates from re-rendering other sections
  */
-function LoopInfoSection() {
+const ElapsedTimeDisplay = memo(function ElapsedTimeDisplay({
+  startedAt,
+}: {
+  startedAt: string;
+}) {
   const colors = useThemeColors();
-  const { loopInfo } = useLoopInfo();
   const [elapsedMs, setElapsedMs] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Update elapsed time every second when loop is running
   useEffect(() => {
-    if (loopInfo.startedAt) {
-      // Calculate initial elapsed time
-      const startTime = new Date(loopInfo.startedAt).getTime();
+    const startTime = new Date(startedAt).getTime();
+    setElapsedMs(Date.now() - startTime);
+
+    intervalRef.current = setInterval(() => {
       setElapsedMs(Date.now() - startTime);
+    }, 1000);
 
-      // Update every second
-      intervalRef.current = setInterval(() => {
-        setElapsedMs(Date.now() - startTime);
-      }, 1000);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [startedAt]);
 
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
-    }
-    setElapsedMs(0);
-    return undefined;
-  }, [loopInfo.startedAt]);
+  return (
+    <Box>
+      <Text dimColor>⏱</Text>
+      <Text color={colors.accent}>{formatElapsedTime(elapsedMs)}</Text>
+    </Box>
+  );
+});
+
+/**
+ * Task info display - memoized to prevent re-renders when only time changes
+ */
+const TaskInfoDisplay = memo(function TaskInfoDisplay({
+  currentTask,
+}: {
+  currentTask: LoopTask;
+}) {
+  const colors = useThemeColors();
+
+  // Extract task number from current task title (format: "1. Title here")
+  const taskNumber = currentTask.title.match(/^(\d+)\./)?.[1] ?? null;
+  const taskTitle = currentTask.title.replace(/^\d+\.\s*/, "") ?? null;
+  const truncatedTitle = taskTitle ? truncate(taskTitle, 25) : null;
+
+  return (
+    <Box>
+      <Text color={colors.secondary} bold>
+        Task {taskNumber}:
+      </Text>
+      <Text color={colors.text}> {truncatedTitle}</Text>
+    </Box>
+  );
+});
+
+/**
+ * Progress display - memoized to prevent re-renders when only time changes
+ */
+const ProgressDisplay = memo(function ProgressDisplay({
+  progress,
+}: {
+  progress: LoopProgress;
+}) {
+  const colors = useThemeColors();
+
+  if (progress.totalTasks <= 0) {
+    return null;
+  }
+
+  return (
+    <Box>
+      <Text dimColor>[</Text>
+      <Text color={colors.success}>{progress.completedTasks}</Text>
+      <Text dimColor>/</Text>
+      <Text color={colors.text}>{progress.totalTasks}</Text>
+      <Text dimColor>]</Text>
+    </Box>
+  );
+});
+
+/**
+ * Token usage display - memoized to prevent re-renders when only time changes
+ */
+const TokenUsageDisplay = memo(function TokenUsageDisplay({
+  tokenUsage,
+}: {
+  tokenUsage: number;
+}) {
+  const colors = useThemeColors();
+
+  if (tokenUsage <= 0) {
+    return null;
+  }
+
+  return (
+    <Box>
+      <Text dimColor>⚡</Text>
+      <Text color={colors.info}>{formatTokens(tokenUsage)}</Text>
+    </Box>
+  );
+});
+
+/**
+ * Loop info section - shows current task, progress, time elapsed, and token usage
+ * Each sub-component is memoized to prevent timer updates from causing full re-renders
+ */
+const LoopInfoSection = memo(function LoopInfoSection() {
+  const { loopInfo } = useLoopInfo();
 
   // Don't show anything if there's no loop info
   if (!loopInfo.progress && !loopInfo.currentTask && !loopInfo.startedAt) {
     return null;
   }
 
-  const progress = loopInfo.progress;
-  const currentTask = loopInfo.currentTask;
-
-  // Extract task number from current task title (format: "1. Title here")
-  const taskNumber = currentTask?.title.match(/^(\d+)\./)?.[1] ?? null;
-  const taskTitle = currentTask?.title.replace(/^\d+\.\s*/, "") ?? null;
-  const truncatedTitle = taskTitle ? truncate(taskTitle, 25) : null;
-
   return (
     <Box gap={1}>
       {/* Current task number and truncated title */}
-      {currentTask && (
-        <Box>
-          <Text color={colors.secondary} bold>
-            Task {taskNumber}:
-          </Text>
-          <Text color={colors.text}> {truncatedTitle}</Text>
-        </Box>
+      {loopInfo.currentTask && (
+        <TaskInfoDisplay currentTask={loopInfo.currentTask} />
       )}
 
       {/* Progress: X/Y tasks completed */}
-      {progress && progress.totalTasks > 0 && (
-        <Box>
-          <Text dimColor>[</Text>
-          <Text color={colors.success}>{progress.completedTasks}</Text>
-          <Text dimColor>/</Text>
-          <Text color={colors.text}>{progress.totalTasks}</Text>
-          <Text dimColor>]</Text>
-        </Box>
-      )}
+      {loopInfo.progress && <ProgressDisplay progress={loopInfo.progress} />}
 
-      {/* Time elapsed */}
+      {/* Time elapsed - isolated to prevent timer updates from re-rendering other parts */}
       {loopInfo.startedAt && (
-        <Box>
-          <Text dimColor>⏱</Text>
-          <Text color={colors.accent}>{formatElapsedTime(elapsedMs)}</Text>
-        </Box>
+        <ElapsedTimeDisplay startedAt={loopInfo.startedAt} />
       )}
 
       {/* Token usage */}
-      {loopInfo.tokenUsage > 0 && (
-        <Box>
-          <Text dimColor>⚡</Text>
-          <Text color={colors.info}>{formatTokens(loopInfo.tokenUsage)}</Text>
-        </Box>
-      )}
+      <TokenUsageDisplay tokenUsage={loopInfo.tokenUsage} />
     </Box>
   );
-}
+});
 
 /**
  * Main Status Bar component
  * Shows loop status, loop info, current game/score, and keyboard hints in 1-2 lines
+ * Memoized to prevent unnecessary re-renders from parent updates
  */
-export function StatusBar({
+export const StatusBar = memo(function StatusBar({
   loopStatus,
   needsAttention,
   condensed = true,
@@ -538,19 +598,28 @@ export function StatusBar({
 }: StatusBarProps) {
   const { gameState } = useGameStatus();
   const { loopInfo } = useLoopInfo();
-  const isPlaying =
-    gameState.status === "playing" || gameState.status === "paused";
-  const hasLoopInfo =
-    loopInfo.progress || loopInfo.currentTask || loopInfo.startedAt;
 
-  // Determine effective hotkey context
-  // If playing a game, use "game" context unless explicitly overridden
-  const effectiveContext: HotkeyContext =
-    hotkeyContext !== "default"
-      ? hotkeyContext
-      : isPlaying
-        ? "game"
-        : "default";
+  // Memoize derived state calculations
+  const isPlaying = useMemo(
+    () => gameState.status === "playing" || gameState.status === "paused",
+    [gameState.status]
+  );
+
+  const hasLoopInfo = useMemo(
+    () => !!(loopInfo.progress || loopInfo.currentTask || loopInfo.startedAt),
+    [loopInfo.progress, loopInfo.currentTask, loopInfo.startedAt]
+  );
+
+  // Determine effective hotkey context - memoized
+  const effectiveContext = useMemo<HotkeyContext>(
+    () =>
+      hotkeyContext !== "default"
+        ? hotkeyContext
+        : isPlaying
+          ? "game"
+          : "default",
+    [hotkeyContext, isPlaying]
+  );
 
   if (condensed) {
     // Single line layout
@@ -616,6 +685,6 @@ export function StatusBar({
       </Box>
     </Box>
   );
-}
+});
 
 export default StatusBar;

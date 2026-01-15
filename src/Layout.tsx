@@ -4,7 +4,7 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import type { ReactNode } from "react";
+import { useMemo, memo, type ReactNode } from "react";
 import { SplitPane } from "./SplitPane.js";
 import { useTerminalSize, MIN_WIDTH, MIN_HEIGHT } from "./use-terminal-size.js";
 import {
@@ -40,7 +40,7 @@ interface TooSmallWarningProps {
   minHeight: number;
 }
 
-function TooSmallWarning({
+const TooSmallWarning = memo(function TooSmallWarning({
   width,
   height,
   minWidth,
@@ -66,7 +66,7 @@ function TooSmallWarning({
       <Text color={colors.warning}>Please resize your terminal</Text>
     </Box>
   );
-}
+});
 
 interface LayoutHelpProps {
   direction: "horizontal" | "vertical";
@@ -74,7 +74,7 @@ interface LayoutHelpProps {
   isSmall: boolean;
 }
 
-function LayoutHelp({ direction, showSecondary, isSmall }: LayoutHelpProps) {
+const LayoutHelp = memo(function LayoutHelp({ direction, showSecondary, isSmall }: LayoutHelpProps) {
   if (isSmall) {
     return <Text dimColor>Tab: Focus | H: Toggle pane | ?: Help</Text>;
   }
@@ -88,7 +88,7 @@ function LayoutHelp({ direction, showSecondary, isSmall }: LayoutHelpProps) {
       {showSecondary ? "Hide" : "Show"} pane | R: Reset | ?: Help
     </Text>
   );
-}
+});
 
 /**
  * Main layout component that provides a resizable split-pane interface.
@@ -146,18 +146,6 @@ export function Layout({
     { isActive: handleInput }
   );
 
-  // Show warning if terminal is too small
-  if (terminalSize.isTooSmall) {
-    return (
-      <TooSmallWarning
-        width={terminalSize.width}
-        height={terminalSize.height}
-        minWidth={MIN_WIDTH}
-        minHeight={MIN_HEIGHT}
-      />
-    );
-  }
-
   // Calculate available space for the split pane
   // Account for header (3 rows), footer (2 rows), and help text (1 row)
   const headerHeight = header ? 3 : 0;
@@ -169,44 +157,63 @@ export function Layout({
   );
   const availableWidth = terminalSize.width;
 
-  // Create pane content with titles
-  const firstPaneContent = (
-    <Box flexDirection="column" width="100%" height="100%">
-      <Box>
-        <Text
-          color={
-            layout.state.focusedPane === 0 ? colors.primary : colors.textMuted
-          }
-          bold={layout.state.focusedPane === 0}
-        >
-          {layout.state.focusedPane === 0 ? `${navIcons.arrowRight} ` : "  "}
-          {gameTitle}
-        </Text>
+  // Create pane content with titles - memoized to prevent unnecessary re-renders
+  // Note: These hooks must be called unconditionally before any early returns
+  const firstPaneContent = useMemo(
+    () => (
+      <Box flexDirection="column" width="100%" height="100%">
+        <Box>
+          <Text
+            color={
+              layout.state.focusedPane === 0 ? colors.primary : colors.textMuted
+            }
+            bold={layout.state.focusedPane === 0}
+          >
+            {layout.state.focusedPane === 0 ? `${navIcons.arrowRight} ` : "  "}
+            {gameTitle}
+          </Text>
+        </Box>
+        <Box flexGrow={1} flexDirection="column" overflow="hidden">
+          {gameArea}
+        </Box>
       </Box>
-      <Box flexGrow={1} flexDirection="column" overflow="hidden">
-        {gameArea}
-      </Box>
-    </Box>
+    ),
+    [gameArea, gameTitle, layout.state.focusedPane, colors.primary, colors.textMuted]
   );
 
-  const secondPaneContent = (
-    <Box flexDirection="column" width="100%" height="100%">
-      <Box>
-        <Text
-          color={
-            layout.state.focusedPane === 1 ? colors.primary : colors.textMuted
-          }
-          bold={layout.state.focusedPane === 1}
-        >
-          {layout.state.focusedPane === 1 ? `${navIcons.arrowRight} ` : "  "}
-          {managementTitle}
-        </Text>
+  const secondPaneContent = useMemo(
+    () => (
+      <Box flexDirection="column" width="100%" height="100%">
+        <Box>
+          <Text
+            color={
+              layout.state.focusedPane === 1 ? colors.primary : colors.textMuted
+            }
+            bold={layout.state.focusedPane === 1}
+          >
+            {layout.state.focusedPane === 1 ? `${navIcons.arrowRight} ` : "  "}
+            {managementTitle}
+          </Text>
+        </Box>
+        <Box flexGrow={1} flexDirection="column" overflow="hidden">
+          {managementArea}
+        </Box>
       </Box>
-      <Box flexGrow={1} flexDirection="column" overflow="hidden">
-        {managementArea}
-      </Box>
-    </Box>
+    ),
+    [managementArea, managementTitle, layout.state.focusedPane, colors.primary, colors.textMuted]
   );
+
+  // Show warning if terminal is too small
+  if (terminalSize.isTooSmall) {
+    return (
+      <TooSmallWarning
+        width={terminalSize.width}
+        height={terminalSize.height}
+        minWidth={MIN_WIDTH}
+        minHeight={MIN_HEIGHT}
+      />
+    );
+  }
 
   return (
     <Box

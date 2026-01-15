@@ -4,7 +4,7 @@
  */
 
 import { Box, Text, useInput } from "ink";
-import type { ReactNode } from "react";
+import { useMemo, memo, type ReactNode } from "react";
 import type { SplitDirection } from "./use-layout-state.js";
 import { boxChars, navIcons } from "./theme.js";
 import { useThemeColors } from "./useTheme.js";
@@ -45,36 +45,41 @@ interface DividerProps {
   isResizing: boolean;
 }
 
-function Divider({ direction, width, height, isResizing }: DividerProps) {
+const Divider = memo(function Divider({ direction, width, height, isResizing }: DividerProps) {
   const colors = useThemeColors();
   const color = isResizing ? colors.primary : colors.border;
 
-  if (direction === "horizontal") {
-    // Vertical divider (one column wide, full height)
-    const dividerChar = isResizing
-      ? boxChars.heavy.vertical
-      : boxChars.light.vertical;
-    return (
-      <Box flexDirection="column" width={1} height={height}>
-        {Array.from({ length: height }).map((_, i) => (
-          <Text key={i} color={color}>
-            {dividerChar}
-          </Text>
-        ))}
-      </Box>
-    );
-  } else {
-    // Horizontal divider (full width, one row)
-    const dividerChar = isResizing
-      ? boxChars.heavy.horizontal
-      : boxChars.light.horizontal;
-    return (
-      <Box width={width} height={1}>
-        <Text color={color}>{dividerChar.repeat(width)}</Text>
-      </Box>
-    );
-  }
-}
+  // Memoize the divider content to prevent recreating arrays on every render
+  const dividerContent = useMemo(() => {
+    if (direction === "horizontal") {
+      // Vertical divider (one column wide, full height)
+      const dividerChar = isResizing
+        ? boxChars.heavy.vertical
+        : boxChars.light.vertical;
+      return (
+        <Box flexDirection="column" width={1} height={height}>
+          {Array.from({ length: height }).map((_, i) => (
+            <Text key={i} color={color}>
+              {dividerChar}
+            </Text>
+          ))}
+        </Box>
+      );
+    } else {
+      // Horizontal divider (full width, one row)
+      const dividerChar = isResizing
+        ? boxChars.heavy.horizontal
+        : boxChars.light.horizontal;
+      return (
+        <Box width={width} height={1}>
+          <Text color={color}>{dividerChar.repeat(width)}</Text>
+        </Box>
+      );
+    }
+  }, [direction, width, height, isResizing, color]);
+
+  return dividerContent;
+});
 
 /**
  * SplitPane component that creates a resizable split layout.
@@ -135,6 +140,39 @@ export function SplitPane({
     { isActive: handleInput }
   );
 
+  // Calculate pane dimensions - memoized to prevent recalculation on every render
+  // Note: This hook must be called unconditionally before any early returns
+  const dimensions = useMemo(() => {
+    let firstW: number, firstH: number;
+    let secondW: number, secondH: number;
+
+    if (direction === "horizontal") {
+      // Horizontal split: left | right
+      // Reserve 1 column for divider
+      const usableWidth = Math.max(0, width - 1);
+      firstW = Math.floor(usableWidth * splitRatio);
+      secondW = usableWidth - firstW;
+      firstH = height;
+      secondH = height;
+    } else {
+      // Vertical split: top / bottom
+      // Reserve 1 row for divider
+      const usableHeight = Math.max(0, height - 1);
+      firstH = Math.floor(usableHeight * splitRatio);
+      secondH = usableHeight - firstH;
+      firstW = width;
+      secondW = width;
+    }
+
+    // Ensure minimum dimensions
+    return {
+      firstWidth: Math.max(0, firstW),
+      firstHeight: Math.max(0, firstH),
+      secondWidth: Math.max(0, secondW),
+      secondHeight: Math.max(0, secondH),
+    };
+  }, [direction, width, height, splitRatio]);
+
   // If secondary is hidden, just render first pane
   if (!showSecondary) {
     return (
@@ -144,33 +182,7 @@ export function SplitPane({
     );
   }
 
-  // Calculate pane dimensions
-  let firstWidth: number, firstHeight: number;
-  let secondWidth: number, secondHeight: number;
-
-  if (direction === "horizontal") {
-    // Horizontal split: left | right
-    // Reserve 1 column for divider
-    const usableWidth = Math.max(0, width - 1);
-    firstWidth = Math.floor(usableWidth * splitRatio);
-    secondWidth = usableWidth - firstWidth;
-    firstHeight = height;
-    secondHeight = height;
-  } else {
-    // Vertical split: top / bottom
-    // Reserve 1 row for divider
-    const usableHeight = Math.max(0, height - 1);
-    firstHeight = Math.floor(usableHeight * splitRatio);
-    secondHeight = usableHeight - firstHeight;
-    firstWidth = width;
-    secondWidth = width;
-  }
-
-  // Ensure minimum dimensions
-  firstWidth = Math.max(0, firstWidth);
-  firstHeight = Math.max(0, firstHeight);
-  secondWidth = Math.max(0, secondWidth);
-  secondHeight = Math.max(0, secondHeight);
+  const { firstWidth, firstHeight, secondWidth, secondHeight } = dimensions;
 
   const firstPaneBorderColor =
     focusedPane === 0 ? colors.borderFocus : colors.border;
@@ -232,7 +244,7 @@ export interface PaneProps {
   height?: number;
 }
 
-export function Pane({
+export const Pane = memo(function Pane({
   title,
   children,
   isFocused = false,
@@ -257,4 +269,4 @@ export function Pane({
       </Box>
     </Box>
   );
-}
+});
