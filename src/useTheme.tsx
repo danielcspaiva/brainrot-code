@@ -5,7 +5,14 @@
  * Reads the theme preference from config and applies it consistently.
  */
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { type Theme, type ThemeId, getTheme, themes } from "./themes.js";
 import type { BrainrotConfig } from "./config.js";
 
@@ -23,6 +30,8 @@ interface ThemeContextValue {
   themeId: ThemeId;
   /** All available themes for selection */
   availableThemes: typeof themes;
+  /** Toggle between light and dark themes */
+  toggleTheme: () => void;
 }
 
 /**
@@ -32,6 +41,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   theme: getTheme("default"),
   themeId: "default",
   availableThemes: themes,
+  toggleTheme: () => {},
 });
 
 // ============================================================================
@@ -52,11 +62,39 @@ export interface ThemeProviderProps {
 export function ThemeProvider({ config, children }: ThemeProviderProps) {
   const themePrefs = config.theme ?? {};
 
-  // Determine the theme ID from config
-  const themeId = useMemo((): ThemeId => {
+  // Determine the base theme ID from config
+  const configThemeId = useMemo((): ThemeId => {
     const colorScheme = themePrefs.colorScheme ?? "default";
     return colorScheme as ThemeId;
   }, [themePrefs.colorScheme]);
+
+  // Theme override state for toggle functionality
+  // null means use the config theme, otherwise use the override
+  const [themeOverride, setThemeOverride] = useState<ThemeId | null>(null);
+
+  // Effective theme ID (override takes precedence)
+  const themeId = themeOverride ?? configThemeId;
+
+  // Toggle between light and dark themes
+  const toggleTheme = useCallback(() => {
+    setThemeOverride((current) => {
+      // Determine what the current effective theme is
+      const effectiveTheme = current ?? configThemeId;
+
+      // If currently light, switch to dark
+      if (effectiveTheme === "light") {
+        return "dark";
+      }
+
+      // If currently dark, switch to light
+      if (effectiveTheme === "dark") {
+        return "light";
+      }
+
+      // For default or retro themes, toggle to dark first
+      return "dark";
+    });
+  }, [configThemeId]);
 
   // Get the base theme
   const baseTheme = useMemo(() => getTheme(themeId), [themeId]);
@@ -88,8 +126,9 @@ export function ThemeProvider({ config, children }: ThemeProviderProps) {
       theme,
       themeId,
       availableThemes: themes,
+      toggleTheme,
     }),
-    [theme, themeId]
+    [theme, themeId, toggleTheme]
   );
 
   return (
