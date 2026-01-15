@@ -203,6 +203,32 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 4.2: Adapt rendering to OpenTUI components (Minesweeper)**
+  - Created `src-opentui/games/MinesweeperGame.tsx` - Minesweeper game for OpenTUI
+    - Full game logic preserved from original (mine placement, reveal cascade, flag mechanics, chord reveal)
+    - Rendering adapted to use OpenTUI `<box>` and `<text>` components
+    - 2D character board rendering with colored elements (hidden cells, flags, mines, numbers)
+    - useKeyboard hook for input handling (Arrow keys, WASD, Space to reveal, F to flag, D for difficulty)
+    - Cursor-based navigation with visual highlight
+    - Three difficulty levels: Easy (9x9, 10 mines), Medium (16x16, 40 mines), Hard (20x12, 60 mines)
+    - Difficulty selector screen with arrow key navigation
+    - Timer that starts after first click (safe first click guaranteed)
+    - Mine counter showing remaining unflagged mines
+    - Chord reveal: clicking revealed number when adjacent flags match reveals remaining neighbors
+    - Colored numbers for adjacent mine counts (1-8)
+    - Game states: playing, paused, won, lost, selecting_difficulty with appropriate screens
+    - Win detection when all non-mine cells revealed
+    - Best times tracking per difficulty (in-memory for session)
+    - Auto-pause support when Claude needs input (loopAttention integration)
+    - HUD showing mines remaining, time elapsed, difficulty, and best time
+  - Updated `src-opentui/games/index.ts` - Added Minesweeper to game registry
+    - Imported MinesweeperGame and minesweeperGameInfo
+    - Added to gameRegistry array
+    - Re-exported for direct access
+    - All 4 games now ported: Snake, Pong, Tetris, Minesweeper
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
