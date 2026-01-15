@@ -63,6 +63,27 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+### Phase 3: Claude Integration
+
+- [x] **Task 3.1: Port process management**
+  - Created `src-opentui/claude/process.ts` - ClaudeProcess class
+    - Event-based child process management with EventEmitter
+    - Spawn options: executablePath, args, cwd, env, shutdownTimeout
+    - Process status tracking: idle, starting, running, stopping, stopped, crashed
+    - Graceful shutdown with SIGTERM → timeout → SIGKILL fallback
+    - Type-safe event listeners: onStdout, onStderr, onStatus, onError, onExit
+    - stdin write/writeLine methods for input
+  - Created `src-opentui/claude/index.ts` - Module exports
+  - Created `src-opentui/hooks/useClaudeProcess.ts` - React hook
+    - Manages ClaudeProcess lifecycle within React component
+    - Output collection with configurable max lines (default 1000)
+    - Automatic cleanup on unmount
+    - Exposes: spawn, stop, kill, write, writeLine, clearOutput
+    - Returns: status, output, error, isRunning
+  - Created `src-opentui/hooks/index.ts` - Hook exports
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
