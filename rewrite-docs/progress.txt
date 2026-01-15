@@ -1,0 +1,24 @@
+# BrainRot CLI v2 - OpenTUI Rewrite Progress
+
+## Completed Tasks
+
+### Phase 1: Core Setup
+
+- [x] **Task 1.1: Set up new project with OpenTUI dependencies**
+  - Added `@opentui/core@^0.1.72` and `@opentui/react@^0.1.72` to package.json
+  - Updated React to `^19.0.0` (compatible with OpenTUI)
+  - Created new source directory structure: `src-opentui/`
+    - `src-opentui/index.tsx` - Entry point with createCliRenderer + createRoot
+    - `src-opentui/App.tsx` - Placeholder App component
+    - `src-opentui/components/` - UI components directory
+    - `src-opentui/claude/` - Claude integration directory
+    - `src-opentui/games/` - Games directory
+    - `src-opentui/hooks/` - React hooks directory
+    - `src-opentui/config/` - Configuration directory
+    - `src-opentui/themes/` - Theme system directory
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
+## Current Session
+
+Started: 2026-01-15
