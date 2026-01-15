@@ -31,6 +31,38 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+### Phase 2: Layout System
+
+- [x] **Task 2.1: Build split-pane with flexbox**
+  - Created `src-opentui/components/Layout.tsx` - Main layout component with split-pane structure
+    - Flexbox-based layout with configurable split ratio (default 60/40)
+    - Alt+Left/Right keyboard shortcuts to resize panels
+    - H key to toggle panel visibility based on focus
+    - Alt+H to reset layout to defaults
+    - Min/max panel width constraints (20-80%)
+  - Created `src-opentui/components/ClaudePanel.tsx` - Claude output panel
+    - Border style changes based on focus state (double when focused)
+    - Placeholder for scrollable output area
+    - Error display area with visual styling
+    - Input hint when focused
+  - Created `src-opentui/components/GamePanel.tsx` - Game container panel
+    - Border style changes based on focus state
+    - Game selection prompt when no game active
+    - Score display header when game is active
+    - Shows available games list
+  - Created `src-opentui/components/StatusBar.tsx` - Bottom status bar
+    - Loop status: iteration count, current task
+    - Game info: name and score
+    - Focus indicator with direction arrows
+    - Terminal dimensions display
+    - Key hints for common actions
+  - Created `src-opentui/components/index.ts` - Component exports
+  - Updated `src-opentui/App.tsx` to use new component architecture
+    - Refactored to use Layout, ClaudePanel, GamePanel, StatusBar components
+    - STATE_INFO now a constant object for cleaner code
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
