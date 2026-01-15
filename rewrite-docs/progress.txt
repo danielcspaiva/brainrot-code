@@ -158,6 +158,28 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 4.2: Adapt rendering to OpenTUI components (Pong)**
+  - Created `src-opentui/games/PongGame.tsx` - Pong game for OpenTUI
+    - Full game logic preserved from original (paddle movement, ball physics, AI opponent, scoring)
+    - Rendering adapted to use OpenTUI `<box>` and `<text>` components
+    - 2D character board rendering with colored elements (player paddle, AI paddle, ball, border, center line)
+    - useKeyboard hook for input handling (Arrow keys, W/S, P/R/Q controls)
+    - useGameLoop for frame-based timing with delta-time movement
+    - Player paddle controlled with up/down keys, AI tracks ball with delay
+    - Ball collision with paddles includes spin based on hit position
+    - Ball speed increases slightly on each paddle hit
+    - HUD showing player score, AI score, win condition, and FPS
+    - Game states: playing, paused, game_over with appropriate overlays
+    - Win/lose detection at 5 points (first to WIN_SCORE wins)
+    - Auto-pause support when Claude needs input (loopAttention integration)
+    - Dimension-responsive game board sizing
+  - Updated `src-opentui/games/index.ts` - Added Pong to game registry
+    - Imported PongGame and pongGameInfo
+    - Added to gameRegistry array
+    - Re-exported for direct access
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
