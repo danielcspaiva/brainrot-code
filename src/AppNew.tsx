@@ -70,7 +70,8 @@ type AppState =
   | "game_select"
   | "loop_running"
   | "loop_complete"
-  | "resume_prompt";
+  | "resume_prompt"
+  | "cancelling";
 
 interface PlanningState {
   featureDescription: string;
@@ -143,6 +144,7 @@ function AppNewContent() {
   const [loopAlertDismissed, setLoopAlertDismissed] = useState(false);
   const [loopStartTime, setLoopStartTime] = useState<Date | null>(null);
   const [gameStats] = useState<GameSessionStats[]>([]); // TODO: Track game stats during session
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Planning state
   const [planningState, setPlanningState] = useState<PlanningState>({
@@ -478,11 +480,44 @@ function AppNewContent() {
     return "idle";
   }, [ralphManager.state.phase, processStatus, ralphLoop.state.status]);
 
+  // Handle cancellation - stop all processes and return to ready state
+  const handleCancel = useCallback(() => {
+    if (isCancelling) return; // Prevent double-cancellation
+
+    // Check if there's an active operation to cancel
+    const hasActiveOperation = ["planning", "loop_running", "executing", "retrying"].some(
+      (phase) => appState === phase || ralphManager.state.phase === phase
+    );
+
+    if (!hasActiveOperation) {
+      // Nothing to cancel, just exit
+      void stop().then(() => exit());
+      return;
+    }
+
+    // Show cancellation feedback immediately
+    setIsCancelling(true);
+    setAppState("cancelling");
+
+    // Stop both managers
+    ralphManager.stop();
+
+    // Stop legacy ClaudeCodeProcess
+    void stop().then(() => {
+      // Return to ready state within 1 second
+      setTimeout(() => {
+        setIsCancelling(false);
+        setAppState("feature_input");
+        // Don't clear output - preserve partial output for viewing
+      }, 500);
+    });
+  }, [isCancelling, appState, ralphManager, stop, exit]);
+
   // Global keyboard handling
   useInput((input, key) => {
-    // Ctrl+C always exits
+    // Ctrl+C cancels operation or exits
     if (key.ctrl && input === "c") {
-      void stop().then(() => exit());
+      handleCancel();
       return;
     }
 
@@ -567,6 +602,40 @@ function AppNewContent() {
     }
 
     switch (appState) {
+      case "cancelling":
+        return (
+          <Box
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            width="100%"
+            height="100%"
+          >
+            <Box
+              flexDirection="column"
+              alignItems="center"
+              borderStyle="single"
+              borderColor={colors.warning}
+              paddingX={4}
+              paddingY={2}
+            >
+              <Text color={colors.warning} bold>
+                Cancelling Operation...
+              </Text>
+              <Box marginTop={1}>
+                <Text dimColor>
+                  Stopping Claude process and cleaning up
+                </Text>
+              </Box>
+              <Box marginTop={1}>
+                <Text dimColor>
+                  Partial output will be preserved
+                </Text>
+              </Box>
+            </Box>
+          </Box>
+        );
+
       case "feature_input":
         return (
           <FeatureInput
