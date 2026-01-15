@@ -229,6 +229,41 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+### Phase 5: Polish
+
+- [x] **Task 5.1: Theme system**
+  - Created `src-opentui/themes/theme.ts` - Theme constants and utilities
+    - `hexColors` map converting terminal color names to hex values for OpenTUI
+    - `colorToHex()` utility function for color conversion
+    - Box drawing characters (light, heavy, double, rounded)
+    - Status icons, alert icons, navigation icons
+    - Progress indicators (filled, empty, spinners, braille animations)
+    - Game-specific characters (snake, tetris, minesweeper symbols)
+    - Decorative characters (stars, hearts, etc.)
+    - Border styles and spacing constants
+    - Utility functions: `getSpinnerFrame()`, `createProgressBar()`, `createDivider()`, `createBoxLine()`
+    - Text utilities: `truncate()`, `centerText()`
+  - Created `src-opentui/themes/themes.ts` - Theme definitions with hex colors
+    - `Theme` interface with colors, statusColors, alertColors, gameColors, rankColors
+    - 4 themes ported with hex color values:
+      - `default` - Modern cyan/magenta/yellow terminal aesthetic
+      - `dark` - Bright colors for dark backgrounds
+      - `light` - High contrast for light terminal backgrounds
+      - `retro` - Classic green phosphor terminal aesthetic
+    - Theme registry functions: `getTheme()`, `getThemeIds()`, `getThemeInfo()`, `isValidThemeId()`
+    - Color lookup functions: `getStatusColor()`, `getStatusIcon()`, `getAlertColor()`, `getRankColor()`
+  - Created `src-opentui/themes/useTheme.tsx` - React context provider
+    - `ThemeProvider` component with initial theme and color overrides support
+    - `useTheme()` hook returning full context (theme, themeId, setTheme, toggleTheme, nextTheme)
+    - Convenience hooks: `useThemeColors()`, `useStatusColors()`, `useAlertColors()`, `useGameColors()`, `useRankColors()`
+    - Themed utility functions: `getThemedStatusColor()`, `getThemedAlertColor()`, `getThemedRankColor()`
+  - Created `src-opentui/themes/index.ts` - Centralized exports
+    - Exports all constants, types, functions from theme.ts
+    - Exports all theme definitions, registry functions from themes.ts
+    - Exports React context, provider, and all hooks from useTheme.tsx
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
