@@ -54,6 +54,7 @@ import { PlanningPhase } from "./PlanningPhase.js";
 import { PreStartReviewScreen } from "./PreStartReviewScreen.js";
 import { TaskBreakdownScreen } from "./TaskBreakdownScreen.js";
 import { useRalphLoopManager } from "./use-ralph-loop-manager.js";
+import { initDebugLogger, debugLog } from "./debug-logger.js";
 import type { LoopTask } from "./loop-state.js";
 import type { GeneratedPrd } from "./PrdGenerationScreen.js";
 
@@ -109,6 +110,17 @@ function AppNewContent() {
     () => getSidePanelSettings(config),
     [config]
   );
+
+  // Initialize debug logger (synchronous - logs available immediately)
+  useEffect(() => {
+    const debugEnabled = config.app?.debugMode ?? false;
+    const workDir = config.claudeCode?.workingDirectory ?? process.cwd();
+    initDebugLogger(debugEnabled, workDir);
+    if (debugEnabled) {
+      debugLog("INIT", "BrainRot started with debug mode enabled");
+      debugLog("INIT", "Config", JSON.stringify(config.app ?? {}));
+    }
+  }, [config.app?.debugMode, config.claudeCode?.workingDirectory, config.app]);
 
   // Claude Code process (for fallback/legacy)
   const { status: processStatus, output, stop, writeLine } = useClaudeCode(claudeCodeOptions);
@@ -192,11 +204,14 @@ function AppNewContent() {
 
   // Handle feature submission - start REAL planning with Claude
   const handleFeatureSubmit = useCallback((feature: string) => {
+    debugLog("EVENT", "handleFeatureSubmit called", feature);
     setPlanningState({ featureDescription: feature });
     setAppState("planning");
 
     // Start real planning with Claude via Ralph manager
+    debugLog("EVENT", "Calling ralphManager.startPlanning");
     ralphManager.startPlanning(feature).catch((error) => {
+      debugLog("ERROR", "Planning failed in handleFeatureSubmit", error instanceof Error ? error.message : String(error));
       console.error("Planning failed:", error);
     });
   }, [ralphManager]);
@@ -560,6 +575,7 @@ function AppNewContent() {
             onPlanReady={handlePlanReady}
             hasFocus={true}
             dimensions={terminalSize}
+            debugMode={config.app?.debugMode ?? false}
           />
         );
 
@@ -756,17 +772,23 @@ function AppNewContent() {
 // EXPORTED APP WRAPPER
 // ============================================================================
 
-export function AppNew() {
+export interface AppNewProps {
+  cliOverrides?: Partial<BrainrotConfig>;
+}
+
+export function AppNew({ cliOverrides = {} }: AppNewProps) {
   const { config: fileConfig } = useConfig();
 
   return (
-    <ThemeProvider config={fileConfig}>
-      <GameStatusProvider>
-        <LoopInfoProvider>
-          <AppNewContent />
-        </LoopInfoProvider>
-      </GameStatusProvider>
-    </ThemeProvider>
+    <CLIOverridesContext.Provider value={cliOverrides}>
+      <ThemeProvider config={fileConfig}>
+        <GameStatusProvider>
+          <LoopInfoProvider>
+            <AppNewContent />
+          </LoopInfoProvider>
+        </GameStatusProvider>
+      </ThemeProvider>
+    </CLIOverridesContext.Provider>
   );
 }
 

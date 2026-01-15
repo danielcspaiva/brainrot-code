@@ -10,6 +10,11 @@ import { Box, Text, useInput } from "ink";
 import { useState, useEffect, useMemo } from "react";
 import { useThemeColors } from "./useTheme.js";
 import { alertIcons, decorChars } from "./theme.js";
+import {
+  debugEvents,
+  getRecentMessages,
+  type DebugMessage,
+} from "./debug-logger.js";
 import type { RalphOutput } from "./use-ralph-loop-manager.js";
 import type { LoopPhase, RalphPRD } from "./ralph-loop-manager.js";
 
@@ -27,6 +32,7 @@ export interface PlanningPhaseProps {
   onPlanReady: () => void;
   hasFocus: boolean;
   dimensions: { width: number; height: number };
+  debugMode?: boolean;
 }
 
 // ============================================================================
@@ -47,6 +53,89 @@ function Spinner() {
   }, []);
 
   return <Text color={colors.primary}>{SPINNER_FRAMES[frame]}</Text>;
+}
+
+// ============================================================================
+// DEBUG PANEL HOOK & COMPONENT
+// ============================================================================
+
+function useDebugMessages(maxMessages: number = 20): DebugMessage[] {
+  const [messages, setMessages] = useState<DebugMessage[]>(() =>
+    getRecentMessages().slice(-maxMessages)
+  );
+
+  useEffect(() => {
+    const handleMessage = (msg: DebugMessage) => {
+      setMessages((prev) => [...prev.slice(-(maxMessages - 1)), msg]);
+    };
+
+    debugEvents.on("message", handleMessage);
+    return () => {
+      debugEvents.off("message", handleMessage);
+    };
+  }, [maxMessages]);
+
+  return messages;
+}
+
+interface DebugPanelProps {
+  width: number;
+  height: number;
+}
+
+function DebugPanel({ width, height }: DebugPanelProps) {
+  const colors = useThemeColors();
+  const messages = useDebugMessages(height - 2);
+
+  const categoryColor = (cat: string): string => {
+    switch (cat) {
+      case "ERROR":
+        return colors.error;
+      case "SPAWN":
+        return colors.success;
+      case "OUTPUT":
+        return colors.primary;
+      case "EVENT":
+        return colors.accent;
+      case "INIT":
+        return colors.secondary;
+      default:
+        return colors.textMuted;
+    }
+  };
+
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="single"
+      borderColor={colors.secondary}
+      width={width}
+      height={height}
+    >
+      <Box paddingX={1}>
+        <Text bold color={colors.secondary}>
+          DEBUG LOG
+        </Text>
+      </Box>
+      <Box flexDirection="column" paddingX={1} overflow="hidden">
+        {messages.length === 0 ? (
+          <Text dimColor italic>
+            No debug messages yet...
+          </Text>
+        ) : (
+          messages.map((msg, i) => (
+            <Text key={i} wrap="truncate">
+              <Text dimColor>[{msg.timestamp.slice(0, 8)}]</Text>
+              <Text color={categoryColor(msg.category)}>[{msg.category}]</Text>
+              <Text color={colors.textMuted}>
+                {" "}{msg.message}{msg.data !== undefined ? `: ${typeof msg.data === "string" ? msg.data.slice(0, 50) : JSON.stringify(msg.data).slice(0, 50)}` : ""}
+              </Text>
+            </Text>
+          ))
+        )}
+      </Box>
+    </Box>
+  );
 }
 
 // ============================================================================
@@ -133,11 +222,16 @@ export function PlanningPhase({
   onPlanReady,
   hasFocus,
   dimensions,
+  debugMode = false,
 }: PlanningPhaseProps) {
   const colors = useThemeColors();
 
+  // In debug mode, split the screen vertically
+  const mainHeight = debugMode ? Math.floor(dimensions.height * 0.5) : dimensions.height;
+  const debugHeight = debugMode ? dimensions.height - mainHeight : 0;
+
   // Calculate visible output lines
-  const maxOutputLines = Math.max(dimensions.height - 16, 5);
+  const maxOutputLines = Math.max(mainHeight - 16, 5);
   const contentWidth = Math.min(80, dimensions.width - 4);
 
   // Get recent output lines
@@ -316,6 +410,13 @@ export function PlanningPhase({
           <Text color={colors.warning}>Press Escape to go back</Text>
         )}
       </Box>
+
+      {/* Debug panel - only shown when debug mode is enabled */}
+      {debugMode && debugHeight > 0 && (
+        <Box marginTop={1}>
+          <DebugPanel width={dimensions.width - 4} height={debugHeight} />
+        </Box>
+      )}
     </Box>
   );
 }

@@ -35,8 +35,8 @@ function main(): void {
     process.exit(0);
   }
 
-  // Render the app
-  render(<AppNew />);
+  // Render the app with CLI overrides
+  render(<AppNew cliOverrides={args.overrides} />);
 }
 
 // Run main

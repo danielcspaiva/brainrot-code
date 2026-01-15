@@ -11,6 +11,12 @@ import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
+import {
+  debugLog,
+  logSpawnDetails,
+  logProcessEvent,
+  logClaudeDiagnostics,
+} from "./debug-logger.js";
 
 // ============================================================================
 // TYPES
@@ -178,23 +184,42 @@ export class RalphLoopManager extends EventEmitter {
    * Start the planning phase - analyze codebase and generate PRD
    */
   async startPlanning(featureDescription: string): Promise<void> {
+    debugLog("SPAWN", "startPlanning called", featureDescription);
     this.setPhase("planning");
     this.state.startedAt = new Date();
 
     try {
+      // Run diagnostics first
+      logClaudeDiagnostics();
+
       // Ensure .ralph-tui directory exists
+      debugLog("SPAWN", "Creating ralph directory", this.ralphDir);
       await mkdir(this.ralphDir, { recursive: true });
 
       // Spawn Claude to generate PRD
       const prompt = PLANNING_PROMPT(featureDescription);
-      const output = await this.runClaudeOnce(prompt, true);
+      debugLog("SPAWN", "Generated planning prompt", prompt.length + " chars");
+      debugLog("SPAWN", "Calling runClaudeOnce...");
 
-      // Parse PRD from output
+      const output = await this.runClaudeOnce(prompt, true);
+      debugLog("SPAWN", "runClaudeOnce completed", output.length + " chars output");
+
+      // Save raw output for debugging
+      const rawOutputPath = join(this.ralphDir, "raw-output.txt");
+      await writeFile(rawOutputPath, output);
+      debugLog("PARSE", "Saved raw output to", rawOutputPath);
+
+      // Parse PRD from output (looks for JSON in code blocks or raw)
+      debugLog("PARSE", "Attempting to parse PRD from output...");
       const prd = this.parsePRD(output);
+
       if (!prd) {
+        debugLog("ERROR", "Failed to parse PRD - check raw output at", rawOutputPath);
+        debugLog("ERROR", "Output preview (last 500 chars)", output.slice(-500));
         throw new Error("Failed to parse PRD from Claude output");
       }
 
+      debugLog("PARSE", "PRD parsed successfully", { name: prd.name, taskCount: prd.tasks.length });
       this.state.prd = prd;
 
       // Write PRD to file
@@ -204,7 +229,9 @@ export class RalphLoopManager extends EventEmitter {
       this.setPhase("plan_ready");
       this.emit(RALPH_EVENTS.PRD_READY, prd);
     } catch (error) {
-      this.state.error = error instanceof Error ? error.message : String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      debugLog("ERROR", "startPlanning failed", errorMsg);
+      this.state.error = errorMsg;
       this.setPhase("errored");
       this.emit(RALPH_EVENTS.ERROR, this.state.error);
     }
@@ -365,58 +392,118 @@ export class RalphLoopManager extends EventEmitter {
         ? ["--permission-mode", "acceptEdits", "-p", prompt]
         : ["--dangerously-skip-permissions", "-p", prompt];
 
-      this.currentProcess = nodeSpawn("claude", args, {
-        cwd: this.workDir,
-        env: process.env,
-        stdio: ["pipe", "pipe", "pipe"],
+      debugLog("SPAWN", "Preparing to spawn Claude process");
+      logSpawnDetails("claude", args, this.workDir);
+
+      try {
+        // Use "ignore" for stdin to avoid Ink raw mode issues
+        // Claude Code uses Ink internally which requires TTY for raw mode
+        this.currentProcess = nodeSpawn("claude", args, {
+          cwd: this.workDir,
+          env: process.env,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+
+        debugLog("SPAWN", "Process spawned", this.currentProcess?.pid ?? "no PID");
+        debugLog("SPAWN", "stdout stream exists?", !!this.currentProcess?.stdout);
+        debugLog("SPAWN", "stderr stream exists?", !!this.currentProcess?.stderr);
+      } catch (spawnError) {
+        debugLog("ERROR", "Failed to spawn process", spawnError instanceof Error ? spawnError.message : String(spawnError));
+        reject(spawnError);
+        return;
+      }
+
+      // Listen for spawn event to confirm process actually started
+      this.currentProcess.on("spawn", () => {
+        debugLog("SPAWN", "SPAWN EVENT FIRED - process is running!");
       });
+
+      // Heartbeat to check if process is still alive
+      const heartbeat = setInterval(() => {
+        if (this.currentProcess && !this.currentProcess.killed) {
+          debugLog("SPAWN", "Heartbeat - process still alive", this.currentProcess.pid);
+        } else {
+          debugLog("SPAWN", "Heartbeat - process dead or killed");
+          clearInterval(heartbeat);
+        }
+      }, 5000);
 
       let stdout = "";
       let stderr = "";
+      let outputChunkCount = 0;
 
       this.currentProcess.stdout?.on("data", (data: Buffer) => {
         const chunk = data.toString();
         stdout += chunk;
-        this.emit(RALPH_EVENTS.OUTPUT, { type: "stdout", content: chunk });
+        outputChunkCount++;
+        // Simple progress indicator - just show bytes received
+        this.emit(RALPH_EVENTS.OUTPUT, { type: "stdout", content: `Processing... (${Math.round(stdout.length / 1024)}KB received)` });
       });
 
       this.currentProcess.stderr?.on("data", (data: Buffer) => {
         const chunk = data.toString();
         stderr += chunk;
+        logProcessEvent("stderr", `${chunk.length} bytes: ${chunk.slice(0, 100)}`);
         this.emit(RALPH_EVENTS.OUTPUT, { type: "stderr", content: chunk });
       });
 
       this.currentProcess.on("error", (err) => {
+        clearInterval(heartbeat);
+        logProcessEvent("error", err);
+        debugLog("ERROR", "Process error event fired", err.message);
         this.currentProcess = null;
         reject(err);
       });
 
-      this.currentProcess.on("exit", (code) => {
+      this.currentProcess.on("exit", (code, signal) => {
+        clearInterval(heartbeat);
+        debugLog("SPAWN", "Process exited", { code, signal, stdoutLen: stdout.length, stderrLen: stderr.length, chunks: outputChunkCount });
         this.currentProcess = null;
         if (code === 0) {
+          debugLog("SPAWN", "Process completed successfully");
           resolve(stdout);
         } else {
+          debugLog("ERROR", "Process failed", { code, stderr: stderr.slice(0, 200) });
           reject(new Error(`Claude exited with code ${code}: ${stderr}`));
         }
+      });
+
+      // Also listen for close event
+      this.currentProcess.on("close", (code, signal) => {
+        debugLog("SPAWN", "Process close event", { code, signal });
       });
     });
   }
 
   private parsePRD(output: string): RalphPRD | null {
     try {
-      // Try to find JSON in the output
-      const jsonMatch = output.match(/\{[\s\S]*"tasks"[\s\S]*\}/);
-      if (!jsonMatch) {
-        // Try to find between code blocks
-        const codeBlockMatch = output.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (codeBlockMatch) {
-          return JSON.parse(codeBlockMatch[1].trim());
+      // First try: Look for JSON in markdown code blocks (most common)
+      const codeBlockMatch = output.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        const jsonStr = codeBlockMatch[1].trim();
+        debugLog("PARSE", "Found code block, attempting to parse", jsonStr.slice(0, 100));
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.tasks && Array.isArray(parsed.tasks)) {
+          debugLog("PARSE", "Successfully parsed PRD from code block");
+          return parsed as RalphPRD;
         }
-        return null;
       }
-      return JSON.parse(jsonMatch[0]);
+
+      // Second try: Look for raw JSON with "tasks" array
+      const jsonMatch = output.match(/\{[\s\S]*"tasks"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+      if (jsonMatch) {
+        debugLog("PARSE", "Found raw JSON, attempting to parse");
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.tasks && Array.isArray(parsed.tasks)) {
+          debugLog("PARSE", "Successfully parsed PRD from raw JSON");
+          return parsed as RalphPRD;
+        }
+      }
+
+      debugLog("ERROR", "No valid PRD JSON found in output");
+      return null;
     } catch (error) {
-      console.error("Failed to parse PRD:", error);
+      debugLog("ERROR", "JSON parse error", error instanceof Error ? error.message : String(error));
       return null;
     }
   }

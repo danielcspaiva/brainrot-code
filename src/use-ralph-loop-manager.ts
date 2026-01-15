@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
+  getRalphLoopManager,
   RalphLoopManager,
   RALPH_EVENTS,
   type LoopState,
@@ -15,6 +16,7 @@ import {
   type RalphPRD,
   type RalphTask,
 } from "./ralph-loop-manager.js";
+import { debugLog } from "./debug-logger.js";
 
 export interface RalphOutput {
   type: "stdout" | "stderr";
@@ -54,6 +56,7 @@ export function useRalphLoopManager(
   workDir?: string
 ): UseRalphLoopManagerResult {
   const managerRef = useRef<RalphLoopManager | null>(null);
+  const intentionalStopRef = useRef(false);
   const [state, setState] = useState<LoopState>({
     phase: "idle",
     mode: "afk",
@@ -68,21 +71,25 @@ export function useRalphLoopManager(
   });
   const [output, setOutput] = useState<RalphOutput[]>([]);
 
-  // Initialize manager
+  // Initialize manager (use singleton to survive re-mounts)
   useEffect(() => {
-    const manager = new RalphLoopManager(workDir);
+    debugLog("EVENT", "useRalphLoopManager effect running - getting manager singleton");
+    const manager = getRalphLoopManager(workDir);
     managerRef.current = manager;
 
     // Subscribe to events
     const handlePhaseChange = (phase: LoopPhase) => {
+      debugLog("EVENT", "Phase changed", phase);
       setState((prev) => ({ ...prev, phase }));
     };
 
     const handlePrdReady = (prd: RalphPRD) => {
+      debugLog("EVENT", "PRD ready", { name: prd.name, taskCount: prd.tasks.length });
       setState((prev) => ({ ...prev, prd }));
     };
 
     const handleTaskStart = (task: RalphTask) => {
+      debugLog("EVENT", "Task started", task.title);
       setState((prev) => ({
         ...prev,
         currentTaskIndex: prev.prd?.tasks.findIndex((t) => t.id === task.id) ?? -1,
@@ -90,6 +97,7 @@ export function useRalphLoopManager(
     };
 
     const handleTaskComplete = (task: RalphTask) => {
+      debugLog("EVENT", "Task completed", task.title);
       setState((prev) => {
         if (!prev.prd) return prev;
         const updatedTasks = prev.prd.tasks.map((t) =>
@@ -103,6 +111,7 @@ export function useRalphLoopManager(
     };
 
     const handleOutput = (data: { type: "stdout" | "stderr"; content: string }) => {
+      debugLog("EVENT", `Output received (${data.type})`, data.content.length + " chars");
       setOutput((prev) => [
         ...prev,
         { type: data.type, content: data.content, timestamp: new Date() },
@@ -110,6 +119,7 @@ export function useRalphLoopManager(
     };
 
     const handleError = (error: string) => {
+      debugLog("ERROR", "Error event received", error);
       setState((prev) => ({ ...prev, error }));
     };
 
@@ -120,10 +130,17 @@ export function useRalphLoopManager(
     manager.on(RALPH_EVENTS.OUTPUT, handleOutput);
     manager.on(RALPH_EVENTS.ERROR, handleError);
 
-    // Cleanup
+    // Cleanup - only stop if intentional (user pressed cancel/escape)
+    // Don't stop on effect re-run due to component re-mounting
     return () => {
+      debugLog("EVENT", "useRalphLoopManager cleanup called", { intentional: intentionalStopRef.current });
       manager.removeAllListeners();
-      manager.stop();
+      if (intentionalStopRef.current) {
+        debugLog("EVENT", "Intentional stop - killing process");
+        manager.stop();
+      } else {
+        debugLog("EVENT", "Effect cleanup (not intentional) - preserving process");
+      }
     };
   }, [workDir]);
 
@@ -141,8 +158,13 @@ export function useRalphLoopManager(
 
   // Actions
   const startPlanning = useCallback(async (featureDescription: string) => {
+    debugLog("EVENT", "startPlanning callback invoked", featureDescription);
+    debugLog("EVENT", "Manager exists?", !!managerRef.current);
+    debugLog("EVENT", "Manager state", managerRef.current?.getState().phase ?? "no manager");
     setOutput([]);
+    debugLog("EVENT", "Calling manager.startPlanning...");
     await managerRef.current?.startPlanning(featureDescription);
+    debugLog("EVENT", "manager.startPlanning completed");
   }, []);
 
   const startExecution = useCallback(async () => {
@@ -158,6 +180,7 @@ export function useRalphLoopManager(
   }, []);
 
   const stop = useCallback(() => {
+    intentionalStopRef.current = true;
     managerRef.current?.stop();
     setOutput([]);
   }, []);
