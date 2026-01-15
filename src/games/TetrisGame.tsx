@@ -520,6 +520,7 @@ export function TetrisGame({
   loopAttention,
   onLoopAlertDismiss,
   onGameStateChange,
+  autoPauseEnabled = true,
 }: GameComponentProps) {
   const [state, setState] = useState<TetrisState>(() => createInitialState());
   const lastDropTime = useRef(0);
@@ -547,9 +548,9 @@ export function TetrisGame({
     });
   }, [state.score, state.status, highScore, onGameStateChange]);
 
-  // Auto-pause when loop needs attention
+  // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
-    if (loopAttention?.needsAttention && state.status === "playing") {
+    if (autoPauseEnabled && loopAttention?.needsAttention && state.status === "playing") {
       setWasPlayingBeforeAlert(true);
       setShowLoopAlert(true);
       setState((prev) => ({ ...prev, status: "paused" }));
@@ -567,6 +568,7 @@ export function TetrisGame({
       }
     }
   }, [
+    autoPauseEnabled,
     loopAttention?.needsAttention,
     state.status,
     showLoopAlert,

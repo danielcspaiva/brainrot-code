@@ -430,6 +430,7 @@ export function MinesweeperGame({
   loopAttention,
   onLoopAlertDismiss,
   onGameStateChange,
+  autoPauseEnabled = true,
 }: GameComponentProps) {
   const [state, setState] = useState<MinesweeperState>(() =>
     createInitialState(0)
@@ -467,9 +468,9 @@ export function MinesweeperGame({
     });
   }, [state.timeElapsed, state.status, bestTime, onGameStateChange]);
 
-  // Auto-pause when loop needs attention
+  // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
-    if (loopAttention?.needsAttention && state.status === "playing") {
+    if (autoPauseEnabled && loopAttention?.needsAttention && state.status === "playing") {
       setWasPlayingBeforeAlert(true);
       setShowLoopAlert(true);
       setState((prev) => ({ ...prev, status: "paused" }));
@@ -487,6 +488,7 @@ export function MinesweeperGame({
       }
     }
   }, [
+    autoPauseEnabled,
     loopAttention?.needsAttention,
     state.status,
     showLoopAlert,

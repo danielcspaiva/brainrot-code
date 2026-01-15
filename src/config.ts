@@ -125,6 +125,10 @@ export interface AppSettings {
   debugMode?: boolean;
   /** Log verbosity level */
   logLevel?: "error" | "warn" | "info" | "debug";
+  /** Auto-pause games when Claude needs input (default: true) */
+  autoPauseOnInput?: boolean;
+  /** Auto-focus Claude pane when input is requested (default: true) */
+  autoFocusOnInput?: boolean;
 }
 
 /**
@@ -236,6 +240,8 @@ export const DEFAULT_CONFIG: BrainrotConfig = {
     maxScoresPerGame: 10,
     debugMode: false,
     logLevel: "info",
+    autoPauseOnInput: true,
+    autoFocusOnInput: true,
   },
 };
 
@@ -463,6 +469,8 @@ export function getAppSettings(config: BrainrotConfig): Required<AppSettings> {
     defaultGame: app.defaultGame ?? "",
     debugMode: app.debugMode ?? false,
     logLevel: app.logLevel ?? "info",
+    autoPauseOnInput: app.autoPauseOnInput ?? true,
+    autoFocusOnInput: app.autoFocusOnInput ?? true,
   };
 }
 

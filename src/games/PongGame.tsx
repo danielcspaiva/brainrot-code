@@ -257,6 +257,7 @@ export function PongGame({
   loopAttention,
   onLoopAlertDismiss,
   onGameStateChange,
+  autoPauseEnabled = true,
 }: GameComponentProps) {
   const boardWidth = Math.max(dimensions.width - 2, 25);
   const boardHeight = Math.max(dimensions.height - 5, 12);
@@ -303,9 +304,9 @@ export function PongGame({
     }
   }, [state.status, state.winner, state.playerScore, endSession]);
 
-  // Auto-pause when loop needs attention
+  // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
-    if (loopAttention?.needsAttention && state.status === "playing") {
+    if (autoPauseEnabled && loopAttention?.needsAttention && state.status === "playing") {
       setWasPlayingBeforeAlert(true);
       setShowLoopAlert(true);
       setState((prev) => ({ ...prev, status: "paused" }));
@@ -323,6 +324,7 @@ export function PongGame({
       }
     }
   }, [
+    autoPauseEnabled,
     loopAttention?.needsAttention,
     state.status,
     showLoopAlert,

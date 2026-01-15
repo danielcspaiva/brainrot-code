@@ -104,6 +104,8 @@ export interface GameComponentProps {
   onLoopAlertDismiss?: () => void;
   /** Callback to report game state changes to status bar */
   onGameStateChange?: (update: GameStateUpdate) => void;
+  /** Whether auto-pause on Claude input is enabled (default: true) */
+  autoPauseEnabled?: boolean;
 }
 
 /**

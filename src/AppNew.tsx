@@ -22,6 +22,7 @@ import { useConfig } from "./use-config.js";
 import {
   getClaudeCodeOptions,
   getSidePanelSettings,
+  getAppSettings,
   deepMerge,
   type BrainrotConfig,
 } from "./config.js";
@@ -110,6 +111,10 @@ function AppNewContent() {
   );
   const sidePanelSettings = useMemo(
     () => getSidePanelSettings(config),
+    [config]
+  );
+  const appSettings = useMemo(
+    () => getAppSettings(config),
     [config]
   );
 
@@ -743,8 +748,8 @@ function AppNewContent() {
               );
             }
 
-            // Attention overlay (game pauses)
-            if (loopAttention.needsAttention && !loopAlertDismissed) {
+            // Attention overlay (game pauses) - only show if autoFocusOnInput is enabled
+            if (loopAttention.needsAttention && !loopAlertDismissed && appSettings.autoFocusOnInput) {
               return (
                 <AttentionOverlay
                   isVisible={true}
@@ -770,6 +775,7 @@ function AppNewContent() {
                       loopAttention={loopAttention}
                       onLoopAlertDismiss={handleLoopAlertDismiss}
                       onGameStateChange={handleGameStateChange}
+                      autoPauseEnabled={appSettings.autoPauseOnInput}
                     />
                   </Box>
                   {/* Side panel (only when terminal is wide enough) */}

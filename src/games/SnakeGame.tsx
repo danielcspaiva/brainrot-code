@@ -250,6 +250,7 @@ export function SnakeGame({
   loopAttention,
   onLoopAlertDismiss,
   onGameStateChange,
+  autoPauseEnabled = true,
 }: GameComponentProps) {
   // Calculate game board size (leaving room for HUD and controls)
   const boardWidth = Math.max(dimensions.width - 2, 15);
@@ -282,9 +283,9 @@ export function SnakeGame({
   // Stats tracking
   const { startSession, endSession, isSessionActive } = useGameSession("snake");
 
-  // Auto-pause when loop needs attention
+  // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
-    if (loopAttention?.needsAttention && state.status === "playing") {
+    if (autoPauseEnabled && loopAttention?.needsAttention && state.status === "playing") {
       setWasPlayingBeforeAlert(true);
       setShowLoopAlert(true);
       setState((prev) => ({ ...prev, status: "paused" }));
@@ -302,6 +303,7 @@ export function SnakeGame({
       }
     }
   }, [
+    autoPauseEnabled,
     loopAttention?.needsAttention,
     state.status,
     showLoopAlert,
