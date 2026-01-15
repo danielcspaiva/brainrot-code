@@ -13,6 +13,7 @@ import type {
   BrainrotConfig,
   ThemePreferences,
   AppSettings,
+  ClaudeOutputMode,
 } from "./config.js";
 
 // ============================================================================
@@ -62,6 +63,7 @@ const CLI_OPTIONS = {
   "claude-executable": { type: "string" },
   "claude-args": { type: "string" },
   "working-dir": { type: "string", short: "w" },
+  "output-mode": { type: "string" },
 
   // App options
   debug: { type: "boolean", short: "d" },
@@ -120,6 +122,7 @@ CLAUDE CODE OPTIONS:
   --claude-executable <path> Path to Claude Code executable
   --claude-args <args>       Arguments to pass to Claude Code (comma-separated)
   -w, --working-dir <path>   Working directory for Claude Code
+  --output-mode <mode>       Output mode: stream-json (default), stream-text, buffered
 
 APP OPTIONS:
   -d, --debug                Enable debug mode
@@ -227,7 +230,8 @@ export function parseCLI(argv: string[] = process.argv): ParseResult {
     if (
       values["claude-executable"] ||
       values["claude-args"] ||
-      values["working-dir"]
+      values["working-dir"] ||
+      values["output-mode"]
     ) {
       overrides.claudeCode = {};
 
@@ -245,6 +249,18 @@ export function parseCLI(argv: string[] = process.argv): ParseResult {
 
       if (values["working-dir"]) {
         overrides.claudeCode.workingDirectory = values["working-dir"];
+      }
+
+      if (values["output-mode"]) {
+        const mode = values["output-mode"];
+        const validModes = ["stream-json", "stream-text", "buffered"];
+        if (!validModes.includes(mode)) {
+          return {
+            args,
+            error: `Invalid output mode: "${mode}". Must be one of: ${validModes.join(", ")}.`,
+          };
+        }
+        overrides.claudeCode.outputMode = mode as ClaudeOutputMode;
       }
     }
 

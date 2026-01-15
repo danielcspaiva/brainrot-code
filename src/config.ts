@@ -98,6 +98,14 @@ export interface ThemePreferences {
 }
 
 /**
+ * Output mode for Claude Code
+ * - stream-json: Streaming JSON output (default)
+ * - stream-text: Streaming text output
+ * - buffered: Buffered output (waits for completion)
+ */
+export type ClaudeOutputMode = "stream-json" | "stream-text" | "buffered";
+
+/**
  * Claude Code integration settings
  */
 export interface ClaudeCodeSettings {
@@ -111,6 +119,8 @@ export interface ClaudeCodeSettings {
   environment?: Record<string, string>;
   /** Timeout for graceful shutdown in milliseconds */
   shutdownTimeout?: number;
+  /** Output mode: stream-json (default), stream-text, or buffered */
+  outputMode?: ClaudeOutputMode;
 }
 
 /**
@@ -235,6 +245,7 @@ export const DEFAULT_CONFIG: BrainrotConfig = {
   claudeCode: {
     executablePath: "claude",
     shutdownTimeout: 5000,
+    outputMode: "stream-json",
   },
   app: {
     maxScoresPerGame: 10,
@@ -448,6 +459,7 @@ export function getClaudeCodeOptions(config: BrainrotConfig): {
   workingDirectory?: string;
   environment?: Record<string, string>;
   shutdownTimeout: number;
+  outputMode: ClaudeOutputMode;
 } {
   const claudeCode = config.claudeCode ?? DEFAULT_CONFIG.claudeCode!;
   return {
@@ -456,6 +468,7 @@ export function getClaudeCodeOptions(config: BrainrotConfig): {
     workingDirectory: claudeCode.workingDirectory,
     environment: claudeCode.environment,
     shutdownTimeout: claudeCode.shutdownTimeout ?? 5000,
+    outputMode: claudeCode.outputMode ?? "stream-json",
   };
 }
 
