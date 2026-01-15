@@ -323,6 +323,22 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 5.4: GameSelector component**
+  - Created `src-opentui/components/GameSelector.tsx` - Game picker overlay
+    - Lists all available games from game registry
+    - Keyboard navigation: Up/Down arrows or J/K to navigate
+    - Enter to select game, Esc or Q to close
+    - Number keys 1-4 for quick selection
+    - Shows game description and controls for selected game
+    - Displays minimum dimensions if defined
+    - Current game highlighting with "(current)" indicator
+    - Visual selection indicator with color highlighting
+    - Responsive to hasFocus prop for input handling
+    - Props: hasFocus, onSelect, onClose, currentGameId
+  - Updated `src-opentui/components/index.ts` - Added GameSelector export
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
