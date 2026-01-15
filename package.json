@@ -1,6 +1,6 @@
 {
   "name": "brainrot-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A terminal-native CLI that wraps Claude Code with built-in games to play while agents work",
   "type": "module",
   "main": "dist/index.js",
