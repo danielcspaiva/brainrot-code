@@ -68,6 +68,10 @@ export interface LayoutPreferences {
   showSecondary?: boolean;
   /** Which pane is focused by default (0 = game, 1 = management) */
   defaultFocusedPane?: 0 | 1;
+  /** Minimum terminal width to show side panel (columns). Default: 120 */
+  sidePanelThreshold?: number;
+  /** Width of side panel when shown (columns). Default: 35 */
+  sidePanelWidth?: number;
 }
 
 /**
@@ -215,6 +219,8 @@ export const DEFAULT_CONFIG: BrainrotConfig = {
     resizeStep: 0.05,
     showSecondary: true,
     defaultFocusedPane: 0,
+    sidePanelThreshold: 120,
+    sidePanelWidth: 35,
   },
   theme: {
     colorScheme: "default",
@@ -457,5 +463,19 @@ export function getAppSettings(config: BrainrotConfig): Required<AppSettings> {
     defaultGame: app.defaultGame ?? "",
     debugMode: app.debugMode ?? false,
     logLevel: app.logLevel ?? "info",
+  };
+}
+
+/**
+ * Get side panel layout settings
+ */
+export function getSidePanelSettings(config: BrainrotConfig): {
+  threshold: number;
+  width: number;
+} {
+  const layout = config.layout ?? DEFAULT_CONFIG.layout!;
+  return {
+    threshold: layout.sidePanelThreshold ?? 120,
+    width: layout.sidePanelWidth ?? 35,
   };
 }
