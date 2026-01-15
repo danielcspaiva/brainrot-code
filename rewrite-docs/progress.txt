@@ -139,6 +139,25 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 4.2: Adapt rendering to OpenTUI components (Snake)**
+  - Created `src-opentui/games/SnakeGame.tsx` - Snake game for OpenTUI
+    - Full game logic preserved from original (direction queue, collision detection, speed scaling)
+    - Rendering adapted to use OpenTUI `<box>` and `<text>` components
+    - 2D character board rendering with colored elements (snake head, body, food, border)
+    - useKeyboard hook for input handling (Arrow keys, WASD, P/R/Q controls)
+    - useGameLoop for frame-based timing with delta-time movement
+    - HUD showing score, high score, and FPS
+    - Game states: playing, paused, game_over with appropriate overlays
+    - Auto-pause support when Claude needs input (loopAttention integration)
+    - Dimension-responsive game board sizing
+    - In-memory high score tracking within session
+  - Updated `src-opentui/games/index.ts` - Added Snake to game registry
+    - Imported SnakeGame and snakeGameInfo
+    - Added to gameRegistry array
+    - Re-exported for direct access
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
