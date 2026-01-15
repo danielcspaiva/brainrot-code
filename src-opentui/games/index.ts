@@ -8,19 +8,21 @@
 import type { GameInfo, GameRegistryEntry } from "../game-types.js";
 import { SnakeGame, snakeGameInfo } from "./SnakeGame.js";
 import { PongGame, pongGameInfo } from "./PongGame.js";
+import { TetrisGame, tetrisGameInfo } from "./TetrisGame.js";
 
 // Game registry - populated as games are ported from Ink to OpenTUI
 export const gameRegistry: GameRegistryEntry[] = [
   { info: snakeGameInfo, component: SnakeGame },
   { info: pongGameInfo, component: PongGame },
+  { info: tetrisGameInfo, component: TetrisGame },
   // More games will be added as they are ported:
-  // { info: tetrisGameInfo, component: TetrisGame },
   // { info: minesweeperGameInfo, component: MinesweeperGame },
 ];
 
 // Re-export game components for direct access
 export { SnakeGame, snakeGameInfo } from "./SnakeGame.js";
 export { PongGame, pongGameInfo } from "./PongGame.js";
+export { TetrisGame, tetrisGameInfo } from "./TetrisGame.js";
 
 /**
  * Get list of all available games

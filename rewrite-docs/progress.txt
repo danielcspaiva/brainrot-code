@@ -180,6 +180,29 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 4.2: Adapt rendering to OpenTUI components (Tetris)**
+  - Created `src-opentui/games/TetrisGame.tsx` - Tetris game for OpenTUI
+    - Full game logic preserved from original (7 standard pieces, rotation, wall kicks, line clearing, scoring)
+    - Rendering adapted to use OpenTUI `<box>` and `<text>` components
+    - 2D character board rendering with colored tetrominos (I, O, T, S, Z, J, L pieces)
+    - useKeyboard hook for input handling (Arrow keys, WASD, Space for hard drop, P/R/Q controls)
+    - useGameLoop for frame-based timing with level-based drop speed
+    - Ghost piece preview showing where the current piece will land
+    - Next piece preview panel showing upcoming tetromino
+    - Line clearing animation with flash effect
+    - Scoring system: 100 (1 line), 300 (2 lines), 500 (3 lines), 800 (Tetris)
+    - Level system: every 10 lines cleared increases level, speeds up drop
+    - HUD showing score, level, lines cleared, high score, and FPS
+    - Game states: playing, paused, game_over with appropriate overlays
+    - Auto-pause support when Claude needs input (loopAttention integration)
+    - In-memory high score tracking within session
+  - Updated `src-opentui/games/index.ts` - Added Tetris to game registry
+    - Imported TetrisGame and tetrisGameInfo
+    - Added to gameRegistry array
+    - Re-exported for direct access
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15
