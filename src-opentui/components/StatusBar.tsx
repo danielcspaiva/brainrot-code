@@ -3,7 +3,8 @@
  *
  * Displays persistent status information:
  * - Loop status: iteration X/N, current task
- * - Game info: name, score
+ * - Game info: name, score, status
+ * - Theme indicator
  * - Key hints
  */
 
@@ -25,7 +26,11 @@ export interface StatusBarProps {
   /** Active game name */
   gameName?: string;
   /** Current game score */
-  score?: number;
+  gameScore?: number;
+  /** Current game status */
+  gameStatus?: "playing" | "paused" | "game_over" | "menu" | null;
+  /** Current theme ID */
+  themeId?: string;
 }
 
 export default function StatusBar({
@@ -37,23 +42,30 @@ export default function StatusBar({
   maxIterations,
   currentTask,
   gameName,
-  score,
+  gameScore,
+  gameStatus,
+  themeId,
 }: StatusBarProps) {
   // Build loop status string
-  let loopStatus = "";
+  let loopStatusStr = "";
   if (iteration !== undefined && maxIterations !== undefined) {
-    loopStatus = `Iter ${iteration}/${maxIterations}`;
+    loopStatusStr = `Iter ${iteration}/${maxIterations}`;
     if (currentTask) {
-      loopStatus += ` | ${currentTask}`;
+      loopStatusStr += ` | ${currentTask}`;
     }
   }
 
   // Build game status string
-  let gameStatus = "";
+  let gameStatusStr = "";
   if (gameName) {
-    gameStatus = gameName;
-    if (score !== undefined) {
-      gameStatus += `: ${score}`;
+    gameStatusStr = gameName;
+    if (gameScore !== undefined) {
+      gameStatusStr += `: ${gameScore}`;
+    }
+    if (gameStatus === "paused") {
+      gameStatusStr += " [PAUSED]";
+    } else if (gameStatus === "game_over") {
+      gameStatusStr += " [GAME OVER]";
     }
   }
 
@@ -71,20 +83,21 @@ export default function StatusBar({
       {/* Left: State and loop info */}
       <box style={{ flexDirection: "row", gap: 2 }}>
         <text fg={stateColor}>[{stateLabel}]</text>
-        {loopStatus && <text fg="#888888">{loopStatus}</text>}
+        {loopStatusStr && <text fg="#888888">{loopStatusStr}</text>}
       </box>
 
-      {/* Center: Game info */}
+      {/* Center: Game info and focus */}
       <box style={{ flexDirection: "row", gap: 2 }}>
-        {gameStatus && <text fg="#FFFF00">{gameStatus}</text>}
+        {gameStatusStr && <text fg="#FFFF00">{gameStatusStr}</text>}
         <text fg="#666666">
           {focus === "claude" ? "◀ Claude" : "Game ▶"} | {dimensions.width}x
           {dimensions.height}
         </text>
+        {themeId && <text fg="#555555">[{themeId}]</text>}
       </box>
 
       {/* Right: Key hints */}
-      <text fg="#555555">Tab:Switch | Alt+←→:Resize | H:Hide | ESC:Exit</text>
+      <text fg="#555555">Tab:Switch | G:Games | T:Theme | ESC:Exit</text>
     </box>
   );
 }

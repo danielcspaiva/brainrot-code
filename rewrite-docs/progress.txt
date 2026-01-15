@@ -339,6 +339,36 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 5.5: Wire up full application integration**
+  - Updated `src-opentui/App.tsx` - Full integration of all components
+    - Added ThemeProvider wrapper around app content
+    - Added game selection state management (selectedGameId, showGameSelector)
+    - Added game state tracking for status bar (gameState)
+    - Integrated useTheme hook for theme switching
+    - Added G key to open GameSelector when game panel is focused
+    - Added T key to cycle through themes
+    - Added ESC key handling to exit games gracefully
+    - Render actual game components from registry based on selection
+    - Calculate and pass game dimensions to game components
+    - Pass game state updates to StatusBar (score, status)
+    - Handle game exit and state change callbacks
+  - Updated `src-opentui/components/StatusBar.tsx` - Enhanced status display
+    - Added gameStatus prop for game state indicator (playing/paused/game_over)
+    - Added themeId prop to show current theme
+    - Renamed score to gameScore for clarity
+    - Updated key hints: Tab:Switch | G:Games | T:Theme | ESC:Exit
+    - Show [PAUSED] and [GAME OVER] indicators in game status
+  - Verification complete:
+    - Tab switches focus between Claude and Game panels
+    - G key (when game focused) opens GameSelector overlay
+    - T key cycles through themes (default → dark → light → retro)
+    - ESC exits current game or app
+    - Games render and respond to input when selected
+    - Theme indicator shows in status bar
+    - Game score and status display in status bar
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15

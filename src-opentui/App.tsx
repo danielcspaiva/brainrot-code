@@ -11,7 +11,7 @@
  */
 
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Layout,
   ClaudePanel,
@@ -19,12 +19,16 @@ import {
   StatusBar,
   ErrorBoundary,
   ErrorDisplay,
+  GameSelector,
 } from "./components/index.js";
 import {
   type AppError,
   type RecoveryAction,
   createAppError,
 } from "./errors/index.js";
+import { ThemeProvider, useTheme } from "./themes/index.js";
+import { getGameById, type GameRegistryEntry } from "./games/index.js";
+import type { GameStateUpdate } from "./game-types.js";
 
 /** Application state machine states */
 export type AppState =
@@ -55,19 +59,39 @@ const STATE_INFO: Record<AppState, { label: string; color: string }> = {
   ERROR: { label: "Error", color: "#FF0000" },
 };
 
-export default function App() {
+/**
+ * Inner App component that uses theme context
+ */
+function AppContent() {
   const { width, height } = useTerminalDimensions();
   const [appState, setAppState] = useState<AppState>("INIT");
   const [focus, setFocus] = useState<FocusTarget>("claude");
   const [error, setError] = useState<AppError | null>(null);
   const [previousState, setPreviousState] = useState<AppState>("INIT");
 
+  // Game state
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [showGameSelector, setShowGameSelector] = useState(false);
+  const [gameState, setGameState] = useState<GameStateUpdate | null>(null);
+
+  // Theme
+  const { themeId, nextTheme, theme } = useTheme();
+
+  // Get selected game entry
+  const selectedGame: GameRegistryEntry | undefined = useMemo(() => {
+    if (!selectedGameId) return undefined;
+    return getGameById(selectedGameId);
+  }, [selectedGameId]);
+
   // Handle error boundary catches
-  const handleBoundaryError = useCallback((boundaryError: AppError) => {
-    setPreviousState(appState);
-    setError(boundaryError);
-    setAppState("ERROR");
-  }, [appState]);
+  const handleBoundaryError = useCallback(
+    (boundaryError: AppError) => {
+      setPreviousState(appState);
+      setError(boundaryError);
+      setAppState("ERROR");
+    },
+    [appState]
+  );
 
   // Handle recovery actions from error display
   const handleRecoveryAction = useCallback(
@@ -102,18 +126,67 @@ export default function App() {
     [previousState]
   );
 
+  // Handle game selection
+  const handleGameSelect = useCallback((gameId: string) => {
+    setSelectedGameId(gameId);
+    setShowGameSelector(false);
+    setGameState(null);
+  }, []);
+
+  // Handle game exit
+  const handleGameExit = useCallback(() => {
+    setSelectedGameId(null);
+    setGameState(null);
+  }, []);
+
+  // Handle game state changes
+  const handleGameStateChange = useCallback((update: GameStateUpdate) => {
+    setGameState(update);
+  }, []);
+
   // Handle global keyboard shortcuts
   useKeyboard(
     useCallback(
       (key) => {
-        // Exit on ESC or Ctrl+C
-        if (key.name === "escape" || (key.ctrl && key.name === "c")) {
+        // Don't process global shortcuts if game selector is open
+        if (showGameSelector) return;
+
+        // Exit on Ctrl+C
+        if (key.ctrl && key.name === "c") {
           process.exit(0);
+        }
+
+        // ESC to close game selector or exit game, or exit app if nothing to close
+        if (key.name === "escape") {
+          if (selectedGameId) {
+            // Exit current game to return to game selector prompt
+            handleGameExit();
+          } else {
+            // Exit app
+            process.exit(0);
+          }
+          return;
         }
 
         // Tab to switch focus between panes
         if (key.name === "tab") {
           setFocus((prev) => (prev === "claude" ? "game" : "claude"));
+        }
+
+        // G key: Open game selector (when game panel is focused)
+        if (
+          key.name === "g" &&
+          !key.ctrl &&
+          !key.alt &&
+          !key.shift &&
+          focus === "game"
+        ) {
+          setShowGameSelector(true);
+        }
+
+        // T key: Cycle theme
+        if (key.name === "t" && !key.ctrl && !key.alt && !key.shift) {
+          nextTheme();
         }
 
         // State transitions for demo/testing
@@ -157,17 +230,65 @@ export default function App() {
           }
         }
       },
-      [appState, previousState]
+      [
+        appState,
+        previousState,
+        focus,
+        showGameSelector,
+        selectedGameId,
+        nextTheme,
+        handleGameExit,
+      ]
     )
   );
 
   const stateInfo = STATE_INFO[appState];
 
+  // Calculate game panel dimensions (rough estimate - accounting for borders and padding)
+  const gameDimensions = useMemo(() => {
+    // Estimate: right panel is ~40% of width minus borders/padding
+    const panelWidth = Math.floor(width * 0.4) - 4;
+    // Estimate: full height minus status bar and borders
+    const panelHeight = height - 4;
+    return {
+      width: Math.max(20, panelWidth),
+      height: Math.max(10, panelHeight),
+    };
+  }, [width, height]);
+
+  // Render game component if selected
+  const gameComponent = useMemo(() => {
+    if (!selectedGame) return undefined;
+
+    const GameComponent = selectedGame.component;
+    return (
+      <GameComponent
+        hasFocus={focus === "game" && !showGameSelector}
+        dimensions={gameDimensions}
+        onExit={handleGameExit}
+        onGameStateChange={handleGameStateChange}
+        autoPauseEnabled={true}
+      />
+    );
+  }, [
+    selectedGame,
+    focus,
+    showGameSelector,
+    gameDimensions,
+    handleGameExit,
+    handleGameStateChange,
+  ]);
+
   // When in error state, show error overlay
   if (appState === "ERROR" && error) {
     return (
       <box flexDirection="column" width="100%" height="100%">
-        <box flexGrow={1} padding={2} justifyContent="center" alignItems="center">
+        <box
+          flexGrow={1}
+          padding={2}
+          justifyContent="center"
+          alignItems="center"
+        >
           <ErrorDisplay
             error={error}
             showDetails={true}
@@ -180,6 +301,30 @@ export default function App() {
           stateColor={stateInfo.color}
           focus={focus}
           dimensions={{ width, height }}
+          themeId={themeId}
+        />
+      </box>
+    );
+  }
+
+  // Game selector overlay
+  if (showGameSelector) {
+    return (
+      <box flexDirection="column" width="100%" height="100%">
+        <box flexGrow={1}>
+          <GameSelector
+            hasFocus={true}
+            onSelect={handleGameSelect}
+            onClose={() => setShowGameSelector(false)}
+            currentGameId={selectedGameId}
+          />
+        </box>
+        <StatusBar
+          stateLabel={stateInfo.label}
+          stateColor={stateInfo.color}
+          focus={focus}
+          dimensions={{ width, height }}
+          themeId={themeId}
         />
       </box>
     );
@@ -195,16 +340,38 @@ export default function App() {
             error={error?.message ?? null}
           />
         }
-        rightPanel={<GamePanel hasFocus={focus === "game"} />}
+        rightPanel={
+          <GamePanel
+            hasFocus={focus === "game"}
+            game={gameComponent}
+            gameName={selectedGame?.info.name}
+            score={gameState?.score ?? undefined}
+          />
+        }
         statusBar={
           <StatusBar
             stateLabel={stateInfo.label}
             stateColor={stateInfo.color}
             focus={focus}
             dimensions={{ width, height }}
+            gameName={selectedGame?.info.name}
+            gameScore={gameState?.score ?? undefined}
+            gameStatus={gameState?.status ?? undefined}
+            themeId={themeId}
           />
         }
       />
     </ErrorBoundary>
+  );
+}
+
+/**
+ * Main App component with ThemeProvider wrapper
+ */
+export default function App() {
+  return (
+    <ThemeProvider initialTheme="default">
+      <AppContent />
+    </ThemeProvider>
   );
 }
