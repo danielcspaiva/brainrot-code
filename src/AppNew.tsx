@@ -43,7 +43,6 @@ import type {
 
 // New components
 import { FeatureInput } from "./FeatureInput.js";
-import { ClaudeChat, type ChatMessage } from "./ClaudeChat.js";
 import { GameSelectScreen } from "./GameSelectScreen.js";
 import { StatusBarMinimal, type LoopStatus } from "./StatusBarMinimal.js";
 import { SidePanel, type Task as SidePanelTask } from "./SidePanel.js";
@@ -51,6 +50,12 @@ import { GameSelectorOverlay } from "./GameSelectorOverlay.js";
 import { AttentionOverlay } from "./AttentionOverlay.js";
 import { LoopComplete, type GameSessionStats } from "./LoopComplete.js";
 import { ResumePrompt } from "./ResumePrompt.js";
+import { PlanningPhase } from "./PlanningPhase.js";
+import { PreStartReviewScreen } from "./PreStartReviewScreen.js";
+import { TaskBreakdownScreen } from "./TaskBreakdownScreen.js";
+import { useRalphLoopManager } from "./use-ralph-loop-manager.js";
+import type { LoopTask } from "./loop-state.js";
+import type { GeneratedPrd } from "./PrdGenerationScreen.js";
 
 // ============================================================================
 // TYPES
@@ -58,7 +63,9 @@ import { ResumePrompt } from "./ResumePrompt.js";
 
 type AppState =
   | "feature_input"
-  | "claude_planning"
+  | "planning"
+  | "plan_confirmation"
+  | "task_breakdown"
   | "game_select"
   | "loop_running"
   | "loop_complete"
@@ -66,10 +73,6 @@ type AppState =
 
 interface PlanningState {
   featureDescription: string;
-  messages: ChatMessage[];
-  isThinking: boolean;
-  progress: number;
-  taskCount: number;
 }
 
 // ============================================================================
@@ -107,9 +110,12 @@ function AppNewContent() {
     [config]
   );
 
-  // Claude Code process
-  const { status: processStatus, output, spawn, stop } = useClaudeCode(claudeCodeOptions);
+  // Claude Code process (for fallback/legacy)
+  const { status: processStatus, output, stop, writeLine } = useClaudeCode(claudeCodeOptions);
   const ralphLoop = useRalphLoopWithClaudeOutput(output);
+
+  // New Ralph Loop Manager
+  const ralphManager = useRalphLoopManager();
 
   // Loop state persistence
   const { exists: loopStateExists, isChecking: isCheckingLoopState } = useLoopStateExists();
@@ -128,10 +134,6 @@ function AppNewContent() {
   // Planning state
   const [planningState, setPlanningState] = useState<PlanningState>({
     featureDescription: "",
-    messages: [],
-    isThinking: false,
-    progress: 0,
-    taskCount: 0,
   });
 
   // Game status context
@@ -145,6 +147,38 @@ function AppNewContent() {
     }
   }, [isCheckingLoopState, loopStateExists, loopState.hasLoop]);
 
+  // Watch for Ralph manager plan ready state
+  useEffect(() => {
+    if (appState === "planning" && ralphManager.isPlanReady) {
+      setAppState("plan_confirmation");
+    }
+  }, [appState, ralphManager.isPlanReady]);
+
+  // Watch for Ralph manager loop completion
+  useEffect(() => {
+    if (appState === "loop_running" && ralphManager.isComplete) {
+      setAppState("loop_complete");
+    }
+  }, [appState, ralphManager.isComplete]);
+
+  // Sync Ralph manager tasks with loop state
+  useEffect(() => {
+    if (ralphManager.prd && appState === "loop_running") {
+      const updatedTasks: LoopTask[] = ralphManager.prd.tasks.map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        status: t.passes ? "completed" : (i === ralphManager.state.currentTaskIndex ? "in_progress" : "pending"),
+        complexity: t.complexity,
+        dependsOn: t.dependsOn,
+      }));
+      // Only update if tasks have changed
+      if (JSON.stringify(updatedTasks) !== JSON.stringify(loopState.state.tasks)) {
+        loopState.updateTasks(updatedTasks);
+      }
+    }
+  }, [ralphManager.prd, ralphManager.state.currentTaskIndex, appState, loopState]);
+
   // Sync loop state to loop info context
   useEffect(() => {
     const { tasks, progress, startedAt } = loopState.state;
@@ -156,126 +190,85 @@ function AppNewContent() {
     });
   }, [loopState.state, setLoopInfo]);
 
-  // Handle feature submission
+  // Handle feature submission - start REAL planning with Claude
   const handleFeatureSubmit = useCallback((feature: string) => {
-    setPlanningState((prev) => ({
-      ...prev,
-      featureDescription: feature,
-      isThinking: true,
-      progress: 10,
-    }));
-    setAppState("claude_planning");
+    setPlanningState({ featureDescription: feature });
+    setAppState("planning");
 
-    // TODO: Actually start Claude Code in plan mode
-    // For now, simulate some planning steps
-    setTimeout(() => {
-      setPlanningState((prev) => ({
-        ...prev,
-        messages: [
-          {
-            role: "assistant",
-            content: "I'll help you build this feature. Let me understand the codebase first...",
-            isWaitingForInput: false,
-          },
-        ],
-        progress: 30,
-      }));
-    }, 1000);
+    // Start real planning with Claude via Ralph manager
+    ralphManager.startPlanning(feature).catch((error) => {
+      console.error("Planning failed:", error);
+    });
+  }, [ralphManager]);
 
-    setTimeout(() => {
-      setPlanningState((prev) => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          {
-            role: "assistant",
-            content: "Do you have any specific requirements or constraints I should know about?",
-            isWaitingForInput: true,
-          },
-        ],
-        isThinking: false,
-        progress: 50,
-      }));
-    }, 2500);
-  }, []);
-
-  // Handle planning answer
-  const handlePlanningAnswer = useCallback((answer: string) => {
-    setPlanningState((prev) => ({
-      ...prev,
-      messages: [
-        ...prev.messages,
-        { role: "user", content: answer },
-      ],
-      isThinking: true,
-      progress: prev.progress + 20,
-    }));
-
-    // Simulate completion of planning
-    setTimeout(() => {
-      setPlanningState((prev) => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          {
-            role: "assistant",
-            content: "Great! I've analyzed your codebase and created a plan with 5 tasks. Ready to start!",
-            isWaitingForInput: false,
-          },
-        ],
-        isThinking: false,
-        progress: 100,
-        taskCount: 5,
-      }));
-
-      // Transition to game select after a brief delay
-      setTimeout(() => {
-        setAppState("game_select");
-      }, 1500);
-    }, 2000);
+  // Handle planning phase completion - move to plan confirmation
+  const handlePlanReady = useCallback(() => {
+    setAppState("plan_confirmation");
   }, []);
 
   // Handle planning cancel
   const handlePlanningCancel = useCallback(() => {
+    ralphManager.stop();
     setAppState("feature_input");
-    setPlanningState({
-      featureDescription: "",
-      messages: [],
-      isThinking: false,
-      progress: 0,
-      taskCount: 0,
-    });
+    setPlanningState({ featureDescription: "" });
+  }, [ralphManager]);
+
+  // Handle plan confirmation - move to task breakdown
+  const handlePlanConfirm = useCallback(() => {
+    setAppState("task_breakdown");
   }, []);
+
+  // Handle task breakdown confirmation - move to game select
+  const handleTaskBreakdownConfirm = useCallback(() => {
+    setAppState("game_select");
+  }, []);
+
+  // Handle going back from plan confirmation
+  const handlePlanEdit = useCallback(() => {
+    // Go back to planning (re-run planning)
+    if (planningState.featureDescription) {
+      setAppState("planning");
+      ralphManager.startPlanning(planningState.featureDescription).catch(console.error);
+    }
+  }, [planningState.featureDescription, ralphManager]);
 
   // Handle game selection and start loop
   const handleGameSelect = useCallback((gameId: string) => {
     setSelectedGameId(gameId);
     setLoopStartTime(new Date());
 
-    // Store planning result in loop state
-    loopState.setPrdAndTasks(
-      {
-        name: planningState.featureDescription,
-        description: "Feature implementation",
-        content: "",
-        raw: null,
-      },
-      Array.from({ length: planningState.taskCount }, (_, i) => ({
-        id: `task-${i + 1}`,
-        title: `Task ${i + 1}`,
+    // Store planning result from Ralph manager in loop state
+    if (ralphManager.prd) {
+      const tasks: LoopTask[] = ralphManager.prd.tasks.map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
         status: i === 0 ? "in_progress" : "pending",
-        complexity: "medium",
-      }))
-    );
+        complexity: t.complexity,
+        dependsOn: t.dependsOn,
+      }));
+
+      loopState.setPrdAndTasks(
+        {
+          name: ralphManager.prd.name,
+          description: ralphManager.prd.description,
+          content: "",
+          raw: ralphManager.prd,
+        },
+        tasks
+      );
+    }
 
     // Start the game and loop
     const gameInfo = getGameById(gameId);
     if (gameInfo) {
       setGameState({ gameId, gameName: gameInfo.info.name });
     }
-    spawn();
+
+    // Start the real Ralph loop execution
+    ralphManager.startExecution().catch(console.error);
     setAppState("loop_running");
-  }, [planningState, loopState, setGameState, spawn]);
+  }, [ralphManager, loopState, setGameState]);
 
   // Handle game switch during loop (from overlay)
   const handleGameSwitch = useCallback((gameId: string) => {
@@ -289,10 +282,10 @@ function AppNewContent() {
 
   // Handle attention overlay response
   const handleAttentionResponse = useCallback((response: string) => {
-    // TODO: Send response to Claude Code process
-    console.log("User response:", response);
+    // Send response to Claude Code process
+    writeLine(response);
     setLoopAlertDismissed(true);
-  }, []);
+  }, [writeLine]);
 
   // Handle attention skip (let Claude decide)
   const handleAttentionSkip = useCallback(() => {
@@ -359,6 +352,23 @@ function AppNewContent() {
 
   // Current activity for side panel
   const currentActivity = useMemo(() => {
+    // First check Ralph manager's current task
+    if (ralphManager.currentTask) {
+      // Use Ralph manager's output if available
+      if (ralphManager.output.length > 0) {
+        const lastOutput = ralphManager.output[ralphManager.output.length - 1];
+        if (lastOutput?.content && lastOutput.content.trim().length > 0) {
+          // Extract meaningful content (skip ANSI codes and empty lines)
+          const cleanContent = lastOutput.content.replace(/\x1b\[[0-9;]*m/g, '').trim();
+          if (cleanContent.length > 0) {
+            return cleanContent.slice(0, 60);
+          }
+        }
+      }
+      return `Working on: ${ralphManager.currentTask.title}`;
+    }
+
+    // Fallback to loop state
     const currentTask = loopState.state.tasks.find((t) => t.status === "in_progress");
     if (!currentTask) return undefined;
     // Use the last output line as activity description if available
@@ -369,7 +379,7 @@ function AppNewContent() {
       }
     }
     return `Working on: ${currentTask.title}`;
-  }, [loopState.state.tasks, output]);
+  }, [ralphManager.currentTask, ralphManager.output, loopState.state.tasks, output]);
 
   // Activity start time (convert from ISO string to Date)
   const activityStartedAt = useMemo(() => {
@@ -418,6 +428,22 @@ function AppNewContent() {
 
   // Map process status to loop status
   const effectiveLoopStatus = useMemo((): LoopStatus => {
+    // First check Ralph manager's state
+    const ralphPhase = ralphManager.state.phase;
+    if (ralphPhase === "executing" || ralphPhase === "retrying") {
+      return "running";
+    }
+    if (ralphPhase === "completed") {
+      return "completed";
+    }
+    if (ralphPhase === "errored") {
+      return "errored";
+    }
+    if (ralphPhase === "paused" || ralphPhase === "task_complete") {
+      return "waiting";
+    }
+
+    // Fallback to legacy process status
     if (processStatus === "running") {
       if (ralphLoop.state.status === "waiting_for_input") return "waiting";
       if (ralphLoop.state.status === "completed") return "completed";
@@ -428,7 +454,7 @@ function AppNewContent() {
       return "idle";
     }
     return "idle";
-  }, [processStatus, ralphLoop.state.status]);
+  }, [ralphManager.state.phase, processStatus, ralphLoop.state.status]);
 
   // Global keyboard handling
   useInput((input, key) => {
@@ -522,25 +548,78 @@ function AppNewContent() {
           />
         );
 
-      case "claude_planning":
+      case "planning":
         return (
-          <ClaudeChat
+          <PlanningPhase
             featureDescription={planningState.featureDescription}
-            messages={planningState.messages}
-            isThinking={planningState.isThinking}
-            progress={planningState.progress}
-            onSubmitAnswer={handlePlanningAnswer}
+            phase={ralphManager.state.phase}
+            output={ralphManager.output}
+            prd={ralphManager.prd}
+            error={ralphManager.state.error}
             onCancel={handlePlanningCancel}
+            onPlanReady={handlePlanReady}
             hasFocus={true}
             dimensions={terminalSize}
           />
         );
 
+      case "plan_confirmation": {
+        // Convert Ralph PRD tasks to GeneratedPrd format for PreStartReviewScreen
+        const generatedPrd: GeneratedPrd = {
+          overview: ralphManager.prd?.description ?? "",
+          requirements: [],
+          technicalApproach: "",
+          taskBreakdown: (ralphManager.prd?.tasks ?? []).map((t, i) => ({
+            id: t.id,
+            title: `${i + 1}. ${t.title}`,
+            description: t.description,
+            status: "pending" as const,
+            complexity: t.complexity,
+            dependsOn: t.dependsOn,
+          })),
+          successCriteria: [],
+          fullContent: "",
+        };
+        return (
+          <PreStartReviewScreen
+            isVisible={true}
+            generatedPrd={generatedPrd}
+            featureName={ralphManager.prd?.name ?? planningState.featureDescription}
+            onStart={handlePlanConfirm}
+            onEditTasks={handlePlanEdit}
+            hasFocus={true}
+            dimensions={terminalSize}
+          />
+        );
+      }
+
+      case "task_breakdown": {
+        // Convert Ralph PRD tasks to LoopTask format for TaskBreakdownScreen
+        const tasks: LoopTask[] = (ralphManager.prd?.tasks ?? []).map((t, i) => ({
+          id: t.id,
+          title: `${i + 1}. ${t.title}`,
+          description: t.description,
+          status: "pending" as const,
+          complexity: t.complexity,
+          dependsOn: t.dependsOn,
+        }));
+        return (
+          <TaskBreakdownScreen
+            isVisible={true}
+            tasks={tasks}
+            featureName={ralphManager.prd?.name ?? planningState.featureDescription}
+            onContinue={handleTaskBreakdownConfirm}
+            hasFocus={true}
+            dimensions={terminalSize}
+          />
+        );
+      }
+
       case "game_select":
         return (
           <GameSelectScreen
-            featureDescription={planningState.featureDescription || loopState.state.prd?.name || "Feature"}
-            taskCount={planningState.taskCount || loopState.state.tasks.length}
+            featureDescription={ralphManager.prd?.name || planningState.featureDescription || loopState.state.prd?.name || "Feature"}
+            taskCount={ralphManager.totalTasks || loopState.state.tasks.length}
             onSelectGame={handleGameSelect}
             hasFocus={true}
             dimensions={terminalSize}
@@ -622,8 +701,8 @@ function AppNewContent() {
         // No game selected - show game selector
         return (
           <GameSelectScreen
-            featureDescription={planningState.featureDescription || loopState.state.prd?.name || "Feature"}
-            taskCount={planningState.taskCount || loopState.state.tasks.length}
+            featureDescription={ralphManager.prd?.name || planningState.featureDescription || loopState.state.prd?.name || "Feature"}
+            taskCount={ralphManager.totalTasks || loopState.state.tasks.length}
             onSelectGame={handleGameSelect}
             hasFocus={true}
             dimensions={terminalSize}

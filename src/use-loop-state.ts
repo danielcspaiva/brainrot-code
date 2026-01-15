@@ -58,6 +58,8 @@ export interface UseLoopStateResult {
   save: () => Promise<void>;
   /** Update arbitrary state fields */
   updateState: (updates: Partial<Omit<LoopState, "version">>) => void;
+  /** Update all tasks at once */
+  updateTasks: (tasks: LoopTask[]) => void;
 }
 
 // ============================================================================
@@ -264,6 +266,23 @@ export function useLoopState(
     [scheduleSave]
   );
 
+  // Update all tasks at once
+  const updateTasks = useCallback(
+    (tasks: LoopTask[]) => {
+      setState((current) => {
+        const updated = {
+          ...current,
+          tasks,
+          progress: calculateProgress(tasks),
+          updatedAt: new Date().toISOString(),
+        };
+        scheduleSave();
+        return updated;
+      });
+    },
+    [scheduleSave]
+  );
+
   return {
     state,
     isLoading,
@@ -277,6 +296,7 @@ export function useLoopState(
     clear,
     save,
     updateState,
+    updateTasks,
   };
 }
 
