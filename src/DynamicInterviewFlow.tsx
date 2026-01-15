@@ -10,7 +10,10 @@ import { Box, Text } from "ink";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useThemeColors } from "./useTheme.js";
 import { navIcons } from "./theme.js";
-import { InterviewQuestion, type InterviewOption } from "./InterviewQuestion.js";
+import {
+  InterviewQuestion,
+  type InterviewOption,
+} from "./InterviewQuestion.js";
 
 // ============================================================================
 // TYPES
@@ -138,7 +141,10 @@ const CORE_QUESTIONS: InterviewQuestionDef[] = [
     question: "Are there specific technical constraints to consider?",
     header: "Technical Constraints",
     options: [
-      { label: "Must use existing codebase patterns", value: "existing_patterns" },
+      {
+        label: "Must use existing codebase patterns",
+        value: "existing_patterns",
+      },
       { label: "Performance is critical", value: "performance" },
       { label: "Security/authentication required", value: "security" },
       { label: "No specific constraints", value: "none" },
@@ -269,9 +275,12 @@ const FOLLOWUP_QUESTIONS: InterviewQuestionDef[] = [
 /**
  * Calculate interview complexity based on feature description
  */
-function estimateComplexity(featureDescription: string): "small" | "medium" | "large" {
+function estimateComplexity(
+  featureDescription: string
+): "small" | "medium" | "large" {
   const words = featureDescription.split(/\s+/).length;
-  const hasComplexKeywords = /system|integration|auth|api|database|migration/i.test(featureDescription);
+  const hasComplexKeywords =
+    /system|integration|auth|api|database|migration/i.test(featureDescription);
 
   if (words > 50 || hasComplexKeywords) {
     return "large";
@@ -295,7 +304,9 @@ function getActiveQuestions(
   for (const followUp of FOLLOWUP_QUESTIONS) {
     if (followUp.showIf && followUp.showIf(answers)) {
       // Insert follow-up after related question
-      const relatedIdx = questions.findIndex((q) => q.category === followUp.category);
+      const relatedIdx = questions.findIndex(
+        (q) => q.category === followUp.category
+      );
       if (relatedIdx >= 0) {
         questions.splice(relatedIdx + 1, 0, followUp);
       } else {
@@ -315,8 +326,16 @@ function getActiveQuestions(
   // For small complexity, reduce questions
   if (complexity === "small") {
     // Keep only essential questions for small features
-    const essentialIds = ["scope_type", "scope_size", "users_primary", "success_criteria", "priority_focus"];
-    questions = questions.filter((q) => essentialIds.includes(q.id) || q.showIf?.(answers));
+    const essentialIds = [
+      "scope_type",
+      "scope_size",
+      "users_primary",
+      "success_criteria",
+      "priority_focus",
+    ];
+    questions = questions.filter(
+      (q) => essentialIds.includes(q.id) || q.showIf?.(answers)
+    );
   }
 
   return questions;
@@ -354,7 +373,11 @@ interface ProgressIndicatorProps {
   colors: ReturnType<typeof useThemeColors>;
 }
 
-function ProgressIndicator({ current, estimated, colors }: ProgressIndicatorProps) {
+function ProgressIndicator({
+  current,
+  estimated,
+  colors,
+}: ProgressIndicatorProps) {
   // Show approximate with ~ since questions may change
   const progressText = `Question ${current} of ~${estimated}`;
   const percentage = Math.round((current / estimated) * 100);
@@ -433,7 +456,9 @@ export function DynamicInterviewFlow({
         const result: InterviewResult = {
           answers: newAnswers,
           featureDescription,
-          complexity: (newAnswers.scope_size as "small" | "medium" | "large") || complexity,
+          complexity:
+            (newAnswers.scope_size as "small" | "medium" | "large") ||
+            complexity,
           summary: generateSummary(newAnswers),
         };
         onComplete(result);
@@ -442,7 +467,14 @@ export function DynamicInterviewFlow({
         setCurrentIndex(nextIndex);
       }
     },
-    [currentQuestion, answers, currentIndex, complexity, featureDescription, onComplete]
+    [
+      currentQuestion,
+      answers,
+      currentIndex,
+      complexity,
+      featureDescription,
+      onComplete,
+    ]
   );
 
   // Handle going back to previous question
@@ -484,7 +516,9 @@ export function DynamicInterviewFlow({
       {/* Category badge */}
       <Box marginBottom={1}>
         <Text dimColor>
-          {navIcons.bullet} {currentQuestion.category.toUpperCase().replace("_", " ")} {navIcons.bullet}
+          {navIcons.bullet}{" "}
+          {currentQuestion.category.toUpperCase().replace("_", " ")}{" "}
+          {navIcons.bullet}
         </Text>
       </Box>
 
@@ -501,9 +535,14 @@ export function DynamicInterviewFlow({
       />
 
       {/* Feature context reminder */}
-      <Box marginTop={2} paddingX={2} width={Math.min(70, (dimensions?.width ?? 80) - 4)}>
+      <Box
+        marginTop={2}
+        paddingX={2}
+        width={Math.min(70, (dimensions?.width ?? 80) - 4)}
+      >
         <Text dimColor italic>
-          Building: {featureDescription.length > 50
+          Building:{" "}
+          {featureDescription.length > 50
             ? featureDescription.slice(0, 50) + "..."
             : featureDescription}
         </Text>

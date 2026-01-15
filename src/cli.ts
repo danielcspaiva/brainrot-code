@@ -9,7 +9,11 @@ import { parseArgs } from "node:util";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { BrainrotConfig, ThemePreferences, AppSettings } from "./config.js";
+import type {
+  BrainrotConfig,
+  ThemePreferences,
+  AppSettings,
+} from "./config.js";
 
 // ============================================================================
 // VERSION DETECTION
@@ -275,7 +279,9 @@ export function parseCLI(argv: string[] = process.argv): ParseResult {
   } catch (error) {
     // Handle unknown flags or other parsing errors
     const message =
-      error instanceof Error ? error.message : "Unknown error parsing arguments";
+      error instanceof Error
+        ? error.message
+        : "Unknown error parsing arguments";
 
     // Provide helpful error message for unknown flags
     if (message.includes("Unknown option")) {

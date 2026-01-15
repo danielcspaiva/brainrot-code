@@ -215,7 +215,20 @@ export const progressChars = {
   spinner: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
   dots: ["⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"],
   braille: ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"],
-  clock: ["🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛"],
+  clock: [
+    "🕐",
+    "🕑",
+    "🕒",
+    "🕓",
+    "🕔",
+    "🕕",
+    "🕖",
+    "🕗",
+    "🕘",
+    "🕙",
+    "🕚",
+    "🕛",
+  ],
 } as const;
 
 /**
@@ -355,7 +368,9 @@ export function createBoxLine(
   if (position === "top") {
     return chars.topLeft + chars.horizontal.repeat(innerWidth) + chars.topRight;
   }
-  return chars.bottomLeft + chars.horizontal.repeat(innerWidth) + chars.bottomRight;
+  return (
+    chars.bottomLeft + chars.horizontal.repeat(innerWidth) + chars.bottomRight
+  );
 }
 
 // ============================================================================
@@ -393,7 +408,10 @@ export function getAlertIcon(type: string): string {
 /**
  * Get color for a rank position
  */
-export function getRankColor(position: number, isHighlighted: boolean = false): string | undefined {
+export function getRankColor(
+  position: number,
+  isHighlighted: boolean = false
+): string | undefined {
   if (isHighlighted) return rankColors.highlighted;
   if (position === 1) return rankColors.first;
   if (position <= 3) return rankColors.top3;

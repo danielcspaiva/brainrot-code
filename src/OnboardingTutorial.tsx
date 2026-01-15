@@ -118,10 +118,20 @@ function ProgressDots({ total, current, colors }: ProgressDotsProps) {
     return (
       <Text
         key={i}
-        color={isActive ? colors.primary : isComplete ? colors.success : colors.textMuted}
+        color={
+          isActive
+            ? colors.primary
+            : isComplete
+              ? colors.success
+              : colors.textMuted
+        }
         bold={isActive}
       >
-        {isActive ? navIcons.radioSelected : isComplete ? navIcons.radioSelected : navIcons.radio}
+        {isActive
+          ? navIcons.radioSelected
+          : isComplete
+            ? navIcons.radioSelected
+            : navIcons.radio}
         {i < total - 1 ? " " : ""}
       </Text>
     );
@@ -147,7 +157,8 @@ function TutorialStepContent({ step, colors }: TutorialStepContentProps) {
           {step.title}
         </Text>
         <Text color={colors.accent} bold>
-          {" "}{step.icon}
+          {" "}
+          {step.icon}
         </Text>
       </Box>
 
@@ -178,7 +189,11 @@ interface NavigationHintsProps {
   colors: ReturnType<typeof useThemeColors>;
 }
 
-function NavigationHints({ canGoBack, isLastStep, colors }: NavigationHintsProps) {
+function NavigationHints({
+  canGoBack,
+  isLastStep,
+  colors,
+}: NavigationHintsProps) {
   return (
     <Box justifyContent="center" marginTop={1}>
       {canGoBack && (

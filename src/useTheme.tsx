@@ -159,10 +159,7 @@ export function useRankColors() {
 /**
  * Get color for a status value using theme
  */
-export function getThemedStatusColor(
-  theme: Theme,
-  status: string
-): string {
+export function getThemedStatusColor(theme: Theme, status: string): string {
   return (
     theme.statusColors[status as keyof Theme["statusColors"]] ??
     theme.colors.textMuted
@@ -172,10 +169,7 @@ export function getThemedStatusColor(
 /**
  * Get color for an alert type using theme
  */
-export function getThemedAlertColor(
-  theme: Theme,
-  type: string
-): string {
+export function getThemedAlertColor(theme: Theme, type: string): string {
   return (
     theme.alertColors[type as keyof Theme["alertColors"]] ?? theme.colors.info
   );

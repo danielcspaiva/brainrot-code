@@ -8,7 +8,12 @@
 import { Box, Text, useInput } from "ink";
 import { useState, useMemo, useCallback } from "react";
 import { useThemeColors } from "./useTheme.js";
-import { navIcons, decorChars, progressChars, createProgressBar } from "./theme.js";
+import {
+  navIcons,
+  decorChars,
+  progressChars,
+  createProgressBar,
+} from "./theme.js";
 import type { LoopState, LoopTask } from "./loop-state.js";
 
 // ============================================================================
@@ -141,9 +146,7 @@ function ProgressSummary({ loopState, colors }: ProgressSummaryProps) {
       {/* Task Status Summary */}
       <Box>
         <Text color={colors.textMuted}>Tasks: </Text>
-        <Text color={colors.success}>
-          {taskCounts.completed} completed
-        </Text>
+        <Text color={colors.success}>{taskCounts.completed} completed</Text>
         <Text color={colors.textMuted}> | </Text>
         {taskCounts.inProgress > 0 && (
           <>
@@ -153,9 +156,7 @@ function ProgressSummary({ loopState, colors }: ProgressSummaryProps) {
             <Text color={colors.textMuted}> | </Text>
           </>
         )}
-        <Text color={colors.textMuted}>
-          {taskCounts.pending} remaining
-        </Text>
+        <Text color={colors.textMuted}>{taskCounts.pending} remaining</Text>
       </Box>
 
       {/* Last Updated */}
@@ -174,7 +175,11 @@ interface TaskListPreviewProps {
   maxItems?: number;
 }
 
-function TaskListPreview({ tasks, colors, maxItems = 5 }: TaskListPreviewProps) {
+function TaskListPreview({
+  tasks,
+  colors,
+  maxItems = 5,
+}: TaskListPreviewProps) {
   const visibleTasks = useMemo(() => {
     // Show completed tasks first, then in-progress, then pending
     const sorted = [...tasks].sort((a, b) => {
@@ -202,7 +207,9 @@ function TaskListPreview({ tasks, colors, maxItems = 5 }: TaskListPreviewProps) 
   if (tasks.length === 0) {
     return (
       <Box marginY={1}>
-        <Text dimColor italic>No tasks recorded</Text>
+        <Text dimColor italic>
+          No tasks recorded
+        </Text>
       </Box>
     );
   }
@@ -219,7 +226,11 @@ function TaskListPreview({ tasks, colors, maxItems = 5 }: TaskListPreviewProps) 
         return (
           <Box key={task.id}>
             <Text color={color}>{icon} </Text>
-            <Text color={task.status === "completed" ? colors.textMuted : colors.text}>
+            <Text
+              color={
+                task.status === "completed" ? colors.textMuted : colors.text
+              }
+            >
               {task.title}
             </Text>
           </Box>
@@ -261,9 +272,7 @@ function ActionButtons({ buttons, selectedIndex, colors }: ActionButtonsProps) {
             >
               {button.icon} {button.label}
             </Text>
-            {isSelected && (
-              <Text dimColor> - {button.description}</Text>
-            )}
+            {isSelected && <Text dimColor> - {button.description}</Text>}
           </Box>
         );
       })}
@@ -305,7 +314,9 @@ export function ResumeOverlay({
 
       // Navigate down
       if (key.downArrow || input === "j" || input === "J") {
-        setSelectedIndex((prev) => Math.min(actionButtons.length - 1, prev + 1));
+        setSelectedIndex((prev) =>
+          Math.min(actionButtons.length - 1, prev + 1)
+        );
         return;
       }
 
@@ -403,9 +414,7 @@ export function ResumeOverlay({
 
         {/* Navigation hints */}
         <Box marginTop={1} justifyContent="center">
-          <Text dimColor>
-            ↑↓: Navigate | Enter: Select | 1-3: Quick select
-          </Text>
+          <Text dimColor>↑↓: Navigate | Enter: Select | 1-3: Quick select</Text>
         </Box>
       </Box>
     </Box>

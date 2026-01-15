@@ -28,9 +28,7 @@ export interface UseConfigResult {
   /** Reload configuration from disk */
   reload: () => Promise<void>;
   /** Update configuration */
-  update: (
-    updates: Partial<Omit<BrainrotConfig, "version">>
-  ) => Promise<void>;
+  update: (updates: Partial<Omit<BrainrotConfig, "version">>) => Promise<void>;
   /** Reset configuration to defaults */
   reset: () => Promise<void>;
   /** Save entire configuration */

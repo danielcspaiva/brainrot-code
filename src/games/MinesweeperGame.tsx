@@ -47,7 +47,13 @@ interface Cell {
 }
 
 /** Game status */
-type GameStatus = "playing" | "paused" | "won" | "lost" | "selecting_difficulty" | "leaderboard";
+type GameStatus =
+  | "playing"
+  | "paused"
+  | "won"
+  | "lost"
+  | "selecting_difficulty"
+  | "leaderboard";
 
 /** Game state */
 interface MinesweeperState {
@@ -407,7 +413,9 @@ function GameOverOverlay({
           </Text>
         </Box>
       )}
-      <Text dimColor>R to restart | H for leaderboard | D to change difficulty</Text>
+      <Text dimColor>
+        R to restart | H for leaderboard | D to change difficulty
+      </Text>
     </Box>
   );
 }
@@ -421,7 +429,13 @@ function getGameIdForDifficulty(difficultyIndex: number): string {
 /**
  * Minesweeper game component
  */
-export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
+export function MinesweeperGame({
+  hasFocus,
+  onExit,
+  loopAttention,
+  onLoopAlertDismiss,
+  onGameStateChange,
+}: GameComponentProps) {
   const [state, setState] = useState<MinesweeperState>(() =>
     createInitialState(0)
   );
@@ -438,15 +452,19 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
   );
 
   // Stats tracking
-  const { startSession, endSession, isSessionActive } = useGameSession("minesweeper");
+  const { startSession, endSession, isSessionActive } =
+    useGameSession("minesweeper");
 
   // Report game state changes to status bar
   useEffect(() => {
     // Map minesweeper-specific status to generic game status
     const mappedStatus =
-      state.status === "won" || state.status === "lost" ? "game_over" :
-      state.status === "selecting_difficulty" || state.status === "leaderboard" ? "menu" :
-      state.status;
+      state.status === "won" || state.status === "lost"
+        ? "game_over"
+        : state.status === "selecting_difficulty" ||
+            state.status === "leaderboard"
+          ? "menu"
+          : state.status;
     onGameStateChange?.({
       score: state.timeElapsed, // Use time as "score" for minesweeper
       status: mappedStatus,
@@ -473,7 +491,12 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
         setWasPlayingBeforeAlert(false);
       }
     }
-  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
+  }, [
+    loopAttention?.needsAttention,
+    state.status,
+    showLoopAlert,
+    wasPlayingBeforeAlert,
+  ]);
 
   // Get best times for all difficulties for the selector
   const { bestTime: easyBest } = useBestTimes("minesweeper-easy");
@@ -490,9 +513,15 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
 
   // Submit time when game is won
   useEffect(() => {
-    if (state.status === "won" && !scoreSubmittedRef.current && state.timeElapsed > 0) {
+    if (
+      state.status === "won" &&
+      !scoreSubmittedRef.current &&
+      state.timeElapsed > 0
+    ) {
       scoreSubmittedRef.current = true;
-      submitTime(state.timeElapsed, { difficulty: DIFFICULTIES[state.difficultyIndex].name }).then((position) => {
+      submitTime(state.timeElapsed, {
+        difficulty: DIFFICULTIES[state.difficultyIndex].name,
+      }).then((position) => {
         if (position > 0) {
           setState((prev) => ({ ...prev, leaderboardPosition: position }));
         }
@@ -502,14 +531,21 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
 
   // Record stats when game ends
   useEffect(() => {
-    if ((state.status === "won" || state.status === "lost") && !statsSubmittedRef.current) {
+    if (
+      (state.status === "won" || state.status === "lost") &&
+      !statsSubmittedRef.current
+    ) {
       statsSubmittedRef.current = true;
       const won = state.status === "won";
       const customStats: Record<string, number> = {};
       if (won && state.timeElapsed > 0) {
         customStats.fastestWin = state.timeElapsed;
       }
-      void endSession(0, won, Object.keys(customStats).length > 0 ? customStats : undefined);
+      void endSession(
+        0,
+        won,
+        Object.keys(customStats).length > 0 ? customStats : undefined
+      );
     }
   }, [state.status, state.timeElapsed, endSession]);
 
@@ -575,9 +611,7 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
 
         // If flags match, reveal adjacent non-flagged cells
         if (flagCount === cell.adjacentMines) {
-          let newBoard = prev.board.map((row) =>
-            row.map((c) => ({ ...c }))
-          );
+          let newBoard = prev.board.map((row) => row.map((c) => ({ ...c })));
           let hitMine = false;
 
           for (let dy = -1; dy <= 1; dy++) {
@@ -744,7 +778,12 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
       }
 
       // Show leaderboard (when game over)
-      if ((input === "h" || input === "H") && (state.status === "won" || state.status === "lost" || state.status === "leaderboard")) {
+      if (
+        (input === "h" || input === "H") &&
+        (state.status === "won" ||
+          state.status === "lost" ||
+          state.status === "leaderboard")
+      ) {
         setState((prev) => ({
           ...prev,
           status: prev.status === "leaderboard" ? "won" : "leaderboard",
@@ -768,7 +807,12 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
         }
         setState((prev) => ({
           ...prev,
-          status: prev.status === "playing" ? "paused" : prev.status === "paused" ? "playing" : prev.status,
+          status:
+            prev.status === "playing"
+              ? "paused"
+              : prev.status === "paused"
+                ? "playing"
+                : prev.status,
         }));
         return;
       }
@@ -824,7 +868,10 @@ export function MinesweeperGame({ hasFocus, onExit, loopAttention, onLoopAlertDi
         </Box>
       ) : state.status === "paused" && showLoopAlert && loopAttention ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
+          <LoopAlertOverlay
+            attention={loopAttention}
+            onDismiss={onLoopAlertDismiss}
+          />
         </Box>
       ) : state.status === "paused" ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">

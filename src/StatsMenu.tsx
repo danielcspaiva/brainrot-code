@@ -100,10 +100,22 @@ function OverviewTab({ globalStats, achievementProgress }: OverviewTabProps) {
       </Box>
 
       <Box flexDirection="column" paddingLeft={2}>
-        <StatRow label="Total Games Played" value={globalStats.totalGamesPlayed} />
-        <StatRow label="Total Time Played" value={formatDuration(globalStats.totalTimePlayed)} />
-        <StatRow label="First Played" value={formatStatsDate(globalStats.firstPlayed)} />
-        <StatRow label="Last Played" value={formatStatsDate(globalStats.lastPlayed)} />
+        <StatRow
+          label="Total Games Played"
+          value={globalStats.totalGamesPlayed}
+        />
+        <StatRow
+          label="Total Time Played"
+          value={formatDuration(globalStats.totalTimePlayed)}
+        />
+        <StatRow
+          label="First Played"
+          value={formatStatsDate(globalStats.firstPlayed)}
+        />
+        <StatRow
+          label="Last Played"
+          value={formatStatsDate(globalStats.lastPlayed)}
+        />
       </Box>
 
       <Box marginTop={1} marginBottom={1}>
@@ -136,7 +148,9 @@ function OverviewTab({ globalStats, achievementProgress }: OverviewTabProps) {
         </Box>
         <Box marginTop={1}>
           <ProgressBar
-            percentage={(achievementProgress.unlocked / achievementProgress.total) * 100}
+            percentage={
+              (achievementProgress.unlocked / achievementProgress.total) * 100
+            }
             width={30}
           />
         </Box>
@@ -180,9 +194,13 @@ function GamesTab({ gameStats, selectedIndex }: GamesTabProps) {
             {index > 0 && <Text> </Text>}
             <Text
               bold={index === selectedIndex}
-              color={index === selectedIndex ? colors.primary : colors.textMuted}
+              color={
+                index === selectedIndex ? colors.primary : colors.textMuted
+              }
             >
-              {index === selectedIndex ? `[${GAME_NAMES[gameId]}]` : GAME_NAMES[gameId]}
+              {index === selectedIndex
+                ? `[${GAME_NAMES[gameId]}]`
+                : GAME_NAMES[gameId]}
             </Text>
           </Box>
         ))}
@@ -203,7 +221,11 @@ function GamesTab({ gameStats, selectedIndex }: GamesTabProps) {
 
         <StatRow label="Games Played" value={stats.gamesPlayed} />
         <StatRow label="Time Played" value={formatDuration(stats.timePlayed)} />
-        <StatRow label="Highest Score" value={stats.highestScore} color={colors.warning} />
+        <StatRow
+          label="Highest Score"
+          value={stats.highestScore}
+          color={colors.warning}
+        />
         <StatRow label="Total Score" value={stats.totalScore} />
 
         {(selectedGame === "pong" || selectedGame === "minesweeper") && (
@@ -219,20 +241,25 @@ function GamesTab({ gameStats, selectedIndex }: GamesTabProps) {
           </>
         )}
 
-        {selectedGame === "tetris" && stats.custom?.linesCleared !== undefined && (
-          <StatRow label="Lines Cleared" value={stats.custom.linesCleared} />
-        )}
+        {selectedGame === "tetris" &&
+          stats.custom?.linesCleared !== undefined && (
+            <StatRow label="Lines Cleared" value={stats.custom.linesCleared} />
+          )}
 
-        {selectedGame === "minesweeper" && stats.custom?.fastestWin !== undefined && (
-          <StatRow
-            label="Fastest Win"
-            value={`${stats.custom.fastestWin}s`}
-            color={colors.info}
-          />
-        )}
+        {selectedGame === "minesweeper" &&
+          stats.custom?.fastestWin !== undefined && (
+            <StatRow
+              label="Fastest Win"
+              value={`${stats.custom.fastestWin}s`}
+              color={colors.info}
+            />
+          )}
 
         <Box marginTop={1}>
-          <StatRow label="Last Played" value={formatStatsDate(stats.lastPlayed)} />
+          <StatRow
+            label="Last Played"
+            value={formatStatsDate(stats.lastPlayed)}
+          />
         </Box>
       </Box>
 
@@ -244,7 +271,9 @@ function GamesTab({ gameStats, selectedIndex }: GamesTabProps) {
 }
 
 interface AchievementsTabProps {
-  achievements: Array<Achievement & { unlocked: boolean; unlockedAt: string | null }>;
+  achievements: Array<
+    Achievement & { unlocked: boolean; unlockedAt: string | null }
+  >;
   selectedIndex: number;
   scrollOffset: number;
 }
@@ -279,7 +308,13 @@ function AchievementsTab({
       | { type: "achievement"; data: (typeof achievements)[0] }
     > = [];
 
-    for (const category of ["general", "snake", "pong", "tetris", "minesweeper"]) {
+    for (const category of [
+      "general",
+      "snake",
+      "pong",
+      "tetris",
+      "minesweeper",
+    ]) {
       if (grouped[category].length > 0) {
         items.push({ type: "header", category });
         for (const a of grouped[category]) {
@@ -304,8 +339,8 @@ function AchievementsTab({
     <Box flexDirection="column">
       <Box marginBottom={1}>
         <Text bold color={colors.primary}>
-          {navIcons.arrowRight} Achievements ({achievements.filter((a) => a.unlocked).length}/
-          {achievements.length})
+          {navIcons.arrowRight} Achievements (
+          {achievements.filter((a) => a.unlocked).length}/{achievements.length})
         </Text>
       </Box>
 
@@ -322,7 +357,10 @@ function AchievementsTab({
 
           if (item.type === "header") {
             return (
-              <Box key={`header-${item.category}`} marginY={actualIndex > 0 ? 1 : 0}>
+              <Box
+                key={`header-${item.category}`}
+                marginY={actualIndex > 0 ? 1 : 0}
+              >
                 <Text bold color={colors.secondary}>
                   {categoryNames[item.category]}
                 </Text>
@@ -346,9 +384,14 @@ function AchievementsTab({
               >
                 {isSelected ? navIcons.arrowRight : " "}
                 {achievement.unlocked ? achievement.icon : "?"}{" "}
-                {achievement.hidden && !achievement.unlocked ? "???" : achievement.name}
+                {achievement.hidden && !achievement.unlocked
+                  ? "???"
+                  : achievement.name}
                 {achievement.unlocked && (
-                  <Text dimColor> - {formatStatsDate(achievement.unlockedAt)}</Text>
+                  <Text dimColor>
+                    {" "}
+                    - {formatStatsDate(achievement.unlockedAt)}
+                  </Text>
                 )}
               </Text>
             </Box>
@@ -373,7 +416,12 @@ function AchievementsTab({
             return (
               <>
                 <Box>
-                  <Text bold color={achievement.unlocked ? colors.success : colors.textMuted}>
+                  <Text
+                    bold
+                    color={
+                      achievement.unlocked ? colors.success : colors.textMuted
+                    }
+                  >
                     {achievement.icon} {achievement.name}
                   </Text>
                 </Box>
@@ -472,7 +520,13 @@ export function StatsMenu({ hasFocus, onClose }: StatsMenuProps) {
     for (const a of achievements) {
       grouped[a.category].push(a);
     }
-    for (const category of ["general", "snake", "pong", "tetris", "minesweeper"]) {
+    for (const category of [
+      "general",
+      "snake",
+      "pong",
+      "tetris",
+      "minesweeper",
+    ]) {
       if (grouped[category].length > 0) {
         items.push({ type: "header" });
         for (let i = 0; i < grouped[category].length; i++) {
@@ -503,9 +557,13 @@ export function StatsMenu({ hasFocus, onClose }: StatsMenuProps) {
       // Tab-specific navigation
       if (activeTab === "games") {
         if (key.leftArrow) {
-          setSelectedGameIndex((prev) => (prev > 0 ? prev - 1 : GAME_IDS.length - 1));
+          setSelectedGameIndex((prev) =>
+            prev > 0 ? prev - 1 : GAME_IDS.length - 1
+          );
         } else if (key.rightArrow) {
-          setSelectedGameIndex((prev) => (prev < GAME_IDS.length - 1 ? prev + 1 : 0));
+          setSelectedGameIndex((prev) =>
+            prev < GAME_IDS.length - 1 ? prev + 1 : 0
+          );
         }
       }
 
@@ -513,7 +571,8 @@ export function StatsMenu({ hasFocus, onClose }: StatsMenuProps) {
         const maxVisible = 8;
         if (key.upArrow) {
           setAchievementIndex((prev) => {
-            const newIndex = prev > 0 ? prev - 1 : achievementFlatList.length - 1;
+            const newIndex =
+              prev > 0 ? prev - 1 : achievementFlatList.length - 1;
             // Adjust scroll if needed
             if (newIndex < achievementScroll) {
               setAchievementScroll(newIndex);
@@ -522,7 +581,8 @@ export function StatsMenu({ hasFocus, onClose }: StatsMenuProps) {
           });
         } else if (key.downArrow) {
           setAchievementIndex((prev) => {
-            const newIndex = prev < achievementFlatList.length - 1 ? prev + 1 : 0;
+            const newIndex =
+              prev < achievementFlatList.length - 1 ? prev + 1 : 0;
             // Adjust scroll if needed
             if (newIndex >= achievementScroll + maxVisible) {
               setAchievementScroll(newIndex - maxVisible + 1);
@@ -577,7 +637,16 @@ export function StatsMenu({ hasFocus, onClose }: StatsMenuProps) {
       </Box>
 
       {/* Footer */}
-      <Box marginTop={1} paddingTop={1} borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} borderColor={colors.border}>
+      <Box
+        marginTop={1}
+        paddingTop={1}
+        borderStyle="single"
+        borderTop
+        borderBottom={false}
+        borderLeft={false}
+        borderRight={false}
+        borderColor={colors.border}
+      >
         <Text dimColor>
           <Text color={colors.primary}>Tab</Text>: Switch sections |{" "}
           <Text color={colors.primary}>Esc/Q</Text>: Close

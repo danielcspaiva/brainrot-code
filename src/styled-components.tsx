@@ -16,11 +16,7 @@ import {
   spacing,
   getSpinnerFrame,
 } from "./theme.js";
-import {
-  useThemeColors,
-  useStatusColors,
-  useAlertColors,
-} from "./useTheme.js";
+import { useThemeColors, useStatusColors, useAlertColors } from "./useTheme.js";
 
 // ============================================================================
 // PANEL COMPONENT
@@ -62,7 +58,8 @@ export function Panel({
   paddingY = 0,
 }: PanelProps) {
   const colors = useThemeColors();
-  const effectiveBorderColor = borderColor ?? (isFocused ? colors.borderFocus : colors.border);
+  const effectiveBorderColor =
+    borderColor ?? (isFocused ? colors.borderFocus : colors.border);
 
   return (
     <Box
@@ -171,9 +168,16 @@ export interface BadgeProps {
 /**
  * Badge component for status indicators and labels
  */
-export function Badge({ children, variant = "default", bold = false }: BadgeProps) {
+export function Badge({
+  children,
+  variant = "default",
+  bold = false,
+}: BadgeProps) {
   const colors = useThemeColors();
-  const badgeVariantColors: Record<NonNullable<BadgeProps["variant"]>, string> = {
+  const badgeVariantColors: Record<
+    NonNullable<BadgeProps["variant"]>,
+    string
+  > = {
     default: colors.textMuted,
     success: colors.success,
     warning: colors.warning,
@@ -272,8 +276,12 @@ export function ProgressBar({
 
   return (
     <Text>
-      <Text color={effectiveFilledColor}>{progressChars.filled.repeat(filled)}</Text>
-      <Text color={effectiveEmptyColor}>{progressChars.empty.repeat(empty)}</Text>
+      <Text color={effectiveFilledColor}>
+        {progressChars.filled.repeat(filled)}
+      </Text>
+      <Text color={effectiveEmptyColor}>
+        {progressChars.empty.repeat(empty)}
+      </Text>
       {showLabel && <Text dimColor> {Math.round(clampedPct)}%</Text>}
     </Text>
   );
@@ -341,11 +349,19 @@ export function Divider({
 }: DividerProps) {
   const colors = useThemeColors();
   const effectiveColor = color ?? colors.border;
-  const char = style === "dashed" ? "╌" : boxChars[style === "heavy" ? "heavy" : style === "double" ? "double" : "light"].horizontal;
+  const char =
+    style === "dashed"
+      ? "╌"
+      : boxChars[
+          style === "heavy" ? "heavy" : style === "double" ? "double" : "light"
+        ].horizontal;
 
   if (label) {
     const labelWithPadding = ` ${label} `;
-    const sideWidth = Math.max(0, Math.floor((width - labelWithPadding.length) / 2));
+    const sideWidth = Math.max(
+      0,
+      Math.floor((width - labelWithPadding.length) / 2)
+    );
     return (
       <Text color={effectiveColor}>
         {char.repeat(sideWidth)}
@@ -488,7 +504,11 @@ export function Header({ title, subtitle, borderColor }: HeaderProps) {
   const colors = useThemeColors();
   const effectiveBorderColor = borderColor ?? colors.primary;
   return (
-    <Box borderStyle="round" borderColor={effectiveBorderColor} paddingX={spacing.md}>
+    <Box
+      borderStyle="round"
+      borderColor={effectiveBorderColor}
+      paddingX={spacing.md}
+    >
       <Text bold color={effectiveBorderColor}>
         {title}
       </Text>

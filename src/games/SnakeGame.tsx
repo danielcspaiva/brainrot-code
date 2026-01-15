@@ -25,7 +25,8 @@ import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
 export const snakeGameInfo: GameInfo = {
   id: "snake",
   name: "Snake",
-  description: "Classic snake game - eat food to grow, avoid walls and yourself!",
+  description:
+    "Classic snake game - eat food to grow, avoid walls and yourself!",
   controls: "Arrow keys/WASD to move, P to pause, R to restart",
   minWidth: 20,
   minHeight: 10,
@@ -242,7 +243,14 @@ function GameHUD({
 /**
  * Snake game component
  */
-export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
+export function SnakeGame({
+  hasFocus,
+  dimensions,
+  onExit,
+  loopAttention,
+  onLoopAlertDismiss,
+  onGameStateChange,
+}: GameComponentProps) {
   // Calculate game board size (leaving room for HUD and controls)
   const boardWidth = Math.max(dimensions.width - 2, 15);
   const boardHeight = Math.max(dimensions.height - 5, 8);
@@ -262,7 +270,8 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
 
   // Report game state changes to status bar
   useEffect(() => {
-    const mappedStatus = state.status === "leaderboard" ? "game_over" : state.status;
+    const mappedStatus =
+      state.status === "leaderboard" ? "game_over" : state.status;
     onGameStateChange?.({
       score: state.score,
       status: mappedStatus,
@@ -292,7 +301,12 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
         setWasPlayingBeforeAlert(false);
       }
     }
-  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
+  }, [
+    loopAttention?.needsAttention,
+    state.status,
+    showLoopAlert,
+    wasPlayingBeforeAlert,
+  ]);
 
   // Reset game when dimensions change significantly
   useEffect(() => {
@@ -311,7 +325,11 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
 
   // Submit score and stats when game ends
   useEffect(() => {
-    if (state.status === "game_over" && !scoreSubmittedRef.current && state.score > 0) {
+    if (
+      state.status === "game_over" &&
+      !scoreSubmittedRef.current &&
+      state.score > 0
+    ) {
       scoreSubmittedRef.current = true;
       submitScore(state.score).then((position) => {
         if (position > 0) {
@@ -450,7 +468,10 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
       // Prevent 180-degree turns
       const currentDir = state.direction;
 
-      if ((key.upArrow || input === "w" || input === "W") && currentDir !== "down") {
+      if (
+        (key.upArrow || input === "w" || input === "W") &&
+        currentDir !== "down"
+      ) {
         setState((prev) => ({ ...prev, nextDirection: "up" }));
       } else if (
         (key.downArrow || input === "s" || input === "S") &&
@@ -474,11 +495,7 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
 
   return (
     <Box flexDirection="column" height="100%">
-      <GameHUD
-        score={state.score}
-        highScore={highScore}
-        fps={loopInfo.fps}
-      />
+      <GameHUD score={state.score} highScore={highScore} fps={loopInfo.fps} />
 
       <Box flexGrow={1} justifyContent="center" alignItems="center">
         {state.status === "leaderboard" ? (
@@ -493,7 +510,10 @@ export function SnakeGame({ hasFocus, dimensions, onExit, loopAttention, onLoopA
             leaderboardPosition={state.leaderboardPosition}
           />
         ) : state.status === "paused" && showLoopAlert && loopAttention ? (
-          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
+          <LoopAlertOverlay
+            attention={loopAttention}
+            onDismiss={onLoopAlertDismiss}
+          />
         ) : state.status === "paused" ? (
           <PausedOverlay />
         ) : (

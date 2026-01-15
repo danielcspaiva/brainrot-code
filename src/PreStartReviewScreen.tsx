@@ -124,7 +124,14 @@ function ComplexityStats({ tasks }: ComplexityStatsProps) {
       complexityColor = colors.error;
     }
 
-    return { small, medium, large, total: tasks.length, estimatedComplexity, complexityColor };
+    return {
+      small,
+      medium,
+      large,
+      total: tasks.length,
+      estimatedComplexity,
+      complexityColor,
+    };
   }, [tasks, colors]);
 
   return (
@@ -193,10 +200,14 @@ function TaskPreviewList({ tasks, maxItems = 5 }: TaskPreviewListProps) {
             </Text>
             <Text> </Text>
             <Text color={colors.text}>
-              {titleWithoutNumber.length > 40 ? titleWithoutNumber.slice(0, 40) + "..." : titleWithoutNumber}
+              {titleWithoutNumber.length > 40
+                ? titleWithoutNumber.slice(0, 40) + "..."
+                : titleWithoutNumber}
             </Text>
             <Text> </Text>
-            {task.complexity && <ComplexityBadge complexity={task.complexity} />}
+            {task.complexity && (
+              <ComplexityBadge complexity={task.complexity} />
+            )}
           </Box>
         );
       })}
@@ -230,10 +241,16 @@ function ActionButtons({ buttons, selectedIndex }: ActionButtonsProps) {
         const isSelected = index === selectedIndex;
         return (
           <Box key={button.id} marginY={0}>
-            <Text color={isSelected ? colors.primary : colors.textMuted} bold={isSelected}>
+            <Text
+              color={isSelected ? colors.primary : colors.textMuted}
+              bold={isSelected}
+            >
               {isSelected ? navIcons.pointer : " "}{" "}
             </Text>
-            <Text color={isSelected ? colors.primary : colors.text} bold={isSelected}>
+            <Text
+              color={isSelected ? colors.primary : colors.text}
+              bold={isSelected}
+            >
               {button.icon} {button.label}
             </Text>
             <Text dimColor> [{button.hotkey}]</Text>
@@ -293,7 +310,9 @@ export function PreStartReviewScreen({
 
       // Navigate down
       if (key.downArrow || input === "j" || input === "J") {
-        setSelectedIndex((prev) => Math.min(actionButtons.length - 1, prev + 1));
+        setSelectedIndex((prev) =>
+          Math.min(actionButtons.length - 1, prev + 1)
+        );
         return;
       }
 
@@ -325,7 +344,13 @@ export function PreStartReviewScreen({
   const tasks = generatedPrd.taskBreakdown;
 
   return (
-    <Box flexDirection="column" alignItems="center" justifyContent="center" width="100%" height="100%">
+    <Box
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      width="100%"
+      height="100%"
+    >
       {/* Main review card */}
       <Box
         flexDirection="column"
@@ -345,7 +370,9 @@ export function PreStartReviewScreen({
         {/* Feature name */}
         <Box justifyContent="center" marginBottom={1}>
           <Text bold color={colors.primary}>
-            {featureName.length > boxWidth - 8 ? featureName.slice(0, boxWidth - 11) + "..." : featureName}
+            {featureName.length > boxWidth - 8
+              ? featureName.slice(0, boxWidth - 11) + "..."
+              : featureName}
           </Text>
         </Box>
 
@@ -370,7 +397,10 @@ export function PreStartReviewScreen({
           <Text bold color={colors.accent}>
             {alertIcons.info} Review complete. What would you like to do?
           </Text>
-          <ActionButtons buttons={actionButtons} selectedIndex={selectedIndex} />
+          <ActionButtons
+            buttons={actionButtons}
+            selectedIndex={selectedIndex}
+          />
         </Box>
 
         {/* Navigation hints */}

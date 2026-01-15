@@ -95,9 +95,7 @@ function createEmptyData(): HighScoresData {
 /**
  * Get leaderboard for a specific game
  */
-export async function getLeaderboard(
-  gameId: string
-): Promise<GameLeaderboard> {
+export async function getLeaderboard(gameId: string): Promise<GameLeaderboard> {
   const data = await loadHighScores();
 
   if (!data.leaderboards[gameId]) {

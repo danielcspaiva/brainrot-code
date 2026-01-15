@@ -321,7 +321,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: "Clear 100 lines in Tetris",
     category: "tetris",
     icon: "📏",
-    condition: (stats) => (stats.games.tetris?.custom?.linesCleared ?? 0) >= 100,
+    condition: (stats) =>
+      (stats.games.tetris?.custom?.linesCleared ?? 0) >= 100,
   },
 
   // Minesweeper achievements
@@ -355,7 +356,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: "Complete Minesweeper in under 60 seconds",
     category: "minesweeper",
     icon: "⚡",
-    condition: (stats) => (stats.games.minesweeper?.custom?.fastestWin ?? 999) < 60,
+    condition: (stats) =>
+      (stats.games.minesweeper?.custom?.fastestWin ?? 999) < 60,
   },
 ];
 

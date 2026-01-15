@@ -51,7 +51,9 @@ function Divider({ direction, width, height, isResizing }: DividerProps) {
 
   if (direction === "horizontal") {
     // Vertical divider (one column wide, full height)
-    const dividerChar = isResizing ? boxChars.heavy.vertical : boxChars.light.vertical;
+    const dividerChar = isResizing
+      ? boxChars.heavy.vertical
+      : boxChars.light.vertical;
     return (
       <Box flexDirection="column" width={1} height={height}>
         {Array.from({ length: height }).map((_, i) => (
@@ -63,7 +65,9 @@ function Divider({ direction, width, height, isResizing }: DividerProps) {
     );
   } else {
     // Horizontal divider (full width, one row)
-    const dividerChar = isResizing ? boxChars.heavy.horizontal : boxChars.light.horizontal;
+    const dividerChar = isResizing
+      ? boxChars.heavy.horizontal
+      : boxChars.light.horizontal;
     return (
       <Box width={width} height={1}>
         <Text color={color}>{dividerChar.repeat(width)}</Text>
@@ -168,8 +172,10 @@ export function SplitPane({
   secondWidth = Math.max(0, secondWidth);
   secondHeight = Math.max(0, secondHeight);
 
-  const firstPaneBorderColor = focusedPane === 0 ? colors.borderFocus : colors.border;
-  const secondPaneBorderColor = focusedPane === 1 ? colors.borderFocus : colors.border;
+  const firstPaneBorderColor =
+    focusedPane === 0 ? colors.borderFocus : colors.border;
+  const secondPaneBorderColor =
+    focusedPane === 1 ? colors.borderFocus : colors.border;
 
   return (
     <Box

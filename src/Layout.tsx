@@ -6,12 +6,11 @@
 import { Box, Text, useInput } from "ink";
 import type { ReactNode } from "react";
 import { SplitPane } from "./SplitPane.js";
+import { useTerminalSize, MIN_WIDTH, MIN_HEIGHT } from "./use-terminal-size.js";
 import {
-  useTerminalSize,
-  MIN_WIDTH,
-  MIN_HEIGHT,
-} from "./use-terminal-size.js";
-import { useLayoutState, type UseLayoutStateOptions } from "./use-layout-state.js";
+  useLayoutState,
+  type UseLayoutStateOptions,
+} from "./use-layout-state.js";
 import { navIcons } from "./theme.js";
 import { useThemeColors } from "./useTheme.js";
 
@@ -77,11 +76,7 @@ interface LayoutHelpProps {
 
 function LayoutHelp({ direction, showSecondary, isSmall }: LayoutHelpProps) {
   if (isSmall) {
-    return (
-      <Text dimColor>
-        Tab: Focus | H: Toggle pane | ?: Help
-      </Text>
-    );
+    return <Text dimColor>Tab: Focus | H: Toggle pane | ?: Help</Text>;
   }
 
   const resizeKeys =
@@ -89,8 +84,8 @@ function LayoutHelp({ direction, showSecondary, isSmall }: LayoutHelpProps) {
 
   return (
     <Text dimColor>
-      Tab: Focus | {resizeKeys} | D: Direction | H: {showSecondary ? "Hide" : "Show"}{" "}
-      pane | R: Reset | ?: Help
+      Tab: Focus | {resizeKeys} | D: Direction | H:{" "}
+      {showSecondary ? "Hide" : "Show"} pane | R: Reset | ?: Help
     </Text>
   );
 }
@@ -179,7 +174,9 @@ export function Layout({
     <Box flexDirection="column" width="100%" height="100%">
       <Box>
         <Text
-          color={layout.state.focusedPane === 0 ? colors.primary : colors.textMuted}
+          color={
+            layout.state.focusedPane === 0 ? colors.primary : colors.textMuted
+          }
           bold={layout.state.focusedPane === 0}
         >
           {layout.state.focusedPane === 0 ? `${navIcons.arrowRight} ` : "  "}
@@ -196,7 +193,9 @@ export function Layout({
     <Box flexDirection="column" width="100%" height="100%">
       <Box>
         <Text
-          color={layout.state.focusedPane === 1 ? colors.primary : colors.textMuted}
+          color={
+            layout.state.focusedPane === 1 ? colors.primary : colors.textMuted
+          }
           bold={layout.state.focusedPane === 1}
         >
           {layout.state.focusedPane === 1 ? `${navIcons.arrowRight} ` : "  "}
@@ -210,7 +209,11 @@ export function Layout({
   );
 
   return (
-    <Box flexDirection="column" width={terminalSize.width} height={terminalSize.height}>
+    <Box
+      flexDirection="column"
+      width={terminalSize.width}
+      height={terminalSize.height}
+    >
       {/* Header */}
       {header && (
         <Box height={headerHeight} flexShrink={0}>
@@ -259,5 +262,8 @@ export function Layout({
  * Export the layout state hook for external access to layout controls
  */
 export { useLayoutState, useTerminalSize };
-export type { UseLayoutStateOptions, UseLayoutStateResult } from "./use-layout-state.js";
+export type {
+  UseLayoutStateOptions,
+  UseLayoutStateResult,
+} from "./use-layout-state.js";
 export type { UseTerminalSizeResult } from "./use-terminal-size.js";

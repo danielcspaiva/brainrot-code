@@ -257,7 +257,9 @@ function SettingRow({ setting, isSelected, isEditing }: SettingRowProps) {
   if (setting.type === "toggle") {
     displayValue = setting.value ? "ON" : "OFF";
   } else if (setting.type === "number" && typeof setting.value === "number") {
-    displayValue = setting.value.toFixed(setting.step && setting.step < 1 ? 1 : 0);
+    displayValue = setting.value.toFixed(
+      setting.step && setting.step < 1 ? 1 : 0
+    );
   } else if (setting.options) {
     const opt = setting.options.find((o) => o.value === setting.value);
     displayValue = opt?.label ?? String(setting.value);
@@ -272,7 +274,10 @@ function SettingRow({ setting, isSelected, isEditing }: SettingRowProps) {
         {setting.label}:
       </Text>
       <Text> </Text>
-      <Box borderStyle={isEditing ? "round" : undefined} borderColor={borderColor}>
+      <Box
+        borderStyle={isEditing ? "round" : undefined}
+        borderColor={borderColor}
+      >
         <Text bold color={isSelected ? colors.accent : colors.textMuted}>
           {isEditing ? `< ${displayValue} >` : displayValue}
         </Text>
@@ -289,7 +294,17 @@ interface SettingsFooterProps {
 function SettingsFooter({ hasChanges, isSaving }: SettingsFooterProps) {
   const colors = useThemeColors();
   return (
-    <Box flexDirection="column" marginTop={1} paddingTop={1} borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} borderColor={colors.border}>
+    <Box
+      flexDirection="column"
+      marginTop={1}
+      paddingTop={1}
+      borderStyle="single"
+      borderTop
+      borderBottom={false}
+      borderLeft={false}
+      borderRight={false}
+      borderColor={colors.border}
+    >
       <Box>
         <Text dimColor>
           <Text color={colors.primary}>Tab</Text>: Switch sections |{" "}
@@ -302,12 +317,8 @@ function SettingsFooter({ hasChanges, isSaving }: SettingsFooterProps) {
           <Text color={colors.primary}>Ctrl+S</Text>: Save to file |{" "}
           <Text color={colors.primary}>Esc/Q</Text>: Close
         </Text>
-        {hasChanges && (
-          <Text color={colors.warning}> | Unsaved changes</Text>
-        )}
-        {isSaving && (
-          <Text color={colors.success}> | Saving...</Text>
-        )}
+        {hasChanges && <Text color={colors.warning}> | Unsaved changes</Text>}
+        {isSaving && <Text color={colors.success}> | Saving...</Text>}
       </Box>
     </Box>
   );
@@ -359,7 +370,10 @@ export function SettingsMenu({
 
       if (setting.type === "toggle") {
         newValue = !setting.value;
-      } else if (setting.type === "number" && typeof setting.value === "number") {
+      } else if (
+        setting.type === "number" &&
+        typeof setting.value === "number"
+      ) {
         const step = setting.step ?? 1;
         if (direction === "next") {
           newValue = Math.min(setting.value + step, setting.max ?? 100);
@@ -369,12 +383,15 @@ export function SettingsMenu({
         // Round to avoid floating point issues
         newValue = Math.round(newValue * 100) / 100;
       } else if (setting.options) {
-        const currentIdx = setting.options.findIndex((o) => o.value === setting.value);
+        const currentIdx = setting.options.findIndex(
+          (o) => o.value === setting.value
+        );
         if (direction === "next") {
           const nextIdx = (currentIdx + 1) % setting.options.length;
           newValue = setting.options[nextIdx].value;
         } else {
-          const prevIdx = currentIdx <= 0 ? setting.options.length - 1 : currentIdx - 1;
+          const prevIdx =
+            currentIdx <= 0 ? setting.options.length - 1 : currentIdx - 1;
           newValue = setting.options[prevIdx].value;
         }
       } else {
@@ -386,9 +403,13 @@ export function SettingsMenu({
       let updates: Partial<BrainrotConfig>;
 
       if (activeTab === "theme") {
-        updates = { theme: { [keyParts[0]]: newValue } as Partial<ThemePreferences> };
+        updates = {
+          theme: { [keyParts[0]]: newValue } as Partial<ThemePreferences>,
+        };
       } else if (activeTab === "layout") {
-        updates = { layout: { [keyParts[0]]: newValue } as Partial<LayoutPreferences> };
+        updates = {
+          layout: { [keyParts[0]]: newValue } as Partial<LayoutPreferences>,
+        };
       } else {
         // Games have nested keys like "snake.initialSpeed"
         if (keyParts.length === 2) {
@@ -398,7 +419,9 @@ export function SettingsMenu({
             } as Partial<GamePreferences>,
           };
         } else {
-          updates = { games: { [keyParts[0]]: newValue } as Partial<GamePreferences> };
+          updates = {
+            games: { [keyParts[0]]: newValue } as Partial<GamePreferences>,
+          };
         }
       }
 
@@ -420,18 +443,21 @@ export function SettingsMenu({
   }, [onSave]);
 
   // Handle tab change
-  const handleTabChange = useCallback((direction: "next" | "prev") => {
-    const currentIdx = tabs.findIndex((t) => t.id === activeTab);
-    let newIdx: number;
-    if (direction === "next") {
-      newIdx = (currentIdx + 1) % tabs.length;
-    } else {
-      newIdx = currentIdx <= 0 ? tabs.length - 1 : currentIdx - 1;
-    }
-    setActiveTab(tabs[newIdx].id);
-    setSelectedIndex(0);
-    setIsEditing(false);
-  }, [activeTab, tabs]);
+  const handleTabChange = useCallback(
+    (direction: "next" | "prev") => {
+      const currentIdx = tabs.findIndex((t) => t.id === activeTab);
+      let newIdx: number;
+      if (direction === "next") {
+        newIdx = (currentIdx + 1) % tabs.length;
+      } else {
+        newIdx = currentIdx <= 0 ? tabs.length - 1 : currentIdx - 1;
+      }
+      setActiveTab(tabs[newIdx].id);
+      setSelectedIndex(0);
+      setIsEditing(false);
+    },
+    [activeTab, tabs]
+  );
 
   // Keyboard input handling
   useInput(
@@ -458,14 +484,18 @@ export function SettingsMenu({
 
       // Navigate up
       if (key.upArrow || input === "k") {
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : currentSettings.length - 1));
+        setSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : currentSettings.length - 1
+        );
         setIsEditing(false);
         return;
       }
 
       // Navigate down
       if (key.downArrow || input === "j") {
-        setSelectedIndex((prev) => (prev < currentSettings.length - 1 ? prev + 1 : 0));
+        setSelectedIndex((prev) =>
+          prev < currentSettings.length - 1 ? prev + 1 : 0
+        );
         setIsEditing(false);
         return;
       }

@@ -112,7 +112,9 @@ export function useStats(gameId: string): UseStatsResult {
 
 export interface UseAchievementsResult {
   /** All achievements with unlock status */
-  achievements: Array<Achievement & { unlocked: boolean; unlockedAt: string | null }>;
+  achievements: Array<
+    Achievement & { unlocked: boolean; unlockedAt: string | null }
+  >;
   /** Total number of achievements */
   total: number;
   /** Number of unlocked achievements */
@@ -222,7 +224,13 @@ export function useGameSession(gameId: string): UseGameSessionResult {
 
       // Record the session
       if (finalDuration > 0) {
-        return recordGameSession(gameId, score, finalDuration, won, customStats);
+        return recordGameSession(
+          gameId,
+          score,
+          finalDuration,
+          won,
+          customStats
+        );
       }
       return [];
     },

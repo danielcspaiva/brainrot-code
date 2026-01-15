@@ -9,7 +9,13 @@
 import { Box, Text, useInput } from "ink";
 import { useState, useMemo, useCallback } from "react";
 import { useThemeColors } from "./useTheme.js";
-import { navIcons, decorChars, progressChars, createProgressBar, alertIcons } from "./theme.js";
+import {
+  navIcons,
+  decorChars,
+  progressChars,
+  createProgressBar,
+  alertIcons,
+} from "./theme.js";
 import type { LoopState, LoopTask } from "./loop-state.js";
 
 // ============================================================================
@@ -120,7 +126,7 @@ function ProgressHeader({ loopState, colors }: ProgressHeaderProps) {
   );
 
   const elapsedTime = useMemo(
-    () => loopState.startedAt ? formatElapsedTime(loopState.startedAt) : "--",
+    () => (loopState.startedAt ? formatElapsedTime(loopState.startedAt) : "--"),
     [loopState.startedAt]
   );
 
@@ -151,9 +157,7 @@ function ProgressHeader({ loopState, colors }: ProgressHeaderProps) {
           {loopState.progress.completedTasks} completed
         </Text>
         <Text color={colors.textMuted}> / </Text>
-        <Text color={colors.text}>
-          {loopState.progress.totalTasks} total
-        </Text>
+        <Text color={colors.text}>{loopState.progress.totalTasks} total</Text>
       </Box>
     </Box>
   );
@@ -167,13 +171,21 @@ interface TaskListProps {
   scrollOffset: number;
 }
 
-function TaskList({ tasks, colors, selectedIndex, maxVisible, scrollOffset }: TaskListProps) {
+function TaskList({
+  tasks,
+  colors,
+  selectedIndex,
+  maxVisible,
+  scrollOffset,
+}: TaskListProps) {
   const visibleTasks = tasks.slice(scrollOffset, scrollOffset + maxVisible);
 
   if (tasks.length === 0) {
     return (
       <Box marginY={1}>
-        <Text dimColor italic>No tasks available</Text>
+        <Text dimColor italic>
+          No tasks available
+        </Text>
       </Box>
     );
   }
@@ -194,7 +206,8 @@ function TaskList({ tasks, colors, selectedIndex, maxVisible, scrollOffset }: Ta
         const { icon, color } = getTaskStatusIcon(task.status);
 
         // Extract task number from title
-        const taskNumber = task.title.match(/^(\d+)\./)?.[1] ?? String(actualIndex + 1);
+        const taskNumber =
+          task.title.match(/^(\d+)\./)?.[1] ?? String(actualIndex + 1);
         const titleWithoutNumber = task.title.replace(/^\d+\.\s*/, "");
 
         return (
@@ -222,8 +235,8 @@ function TaskList({ tasks, colors, selectedIndex, maxVisible, scrollOffset }: Ta
                   task.status === "completed"
                     ? colors.textMuted
                     : task.status === "in_progress"
-                    ? colors.warning
-                    : colors.text
+                      ? colors.warning
+                      : colors.text
                 }
                 strikethrough={task.status === "completed"}
               >
@@ -239,7 +252,9 @@ function TaskList({ tasks, colors, selectedIndex, maxVisible, scrollOffset }: Ta
       {/* Scroll indicator - bottom */}
       {scrollOffset + maxVisible < tasks.length && (
         <Box justifyContent="center" marginTop={1}>
-          <Text dimColor>... {tasks.length - scrollOffset - maxVisible} more below ...</Text>
+          <Text dimColor>
+            ... {tasks.length - scrollOffset - maxVisible} more below ...
+          </Text>
         </Box>
       )}
     </Box>
@@ -293,7 +308,10 @@ export function PrdOverlay({
     if (selectedIndex < Math.floor(maxVisibleTasks / 2)) {
       return 0;
     }
-    if (selectedIndex > loopState.tasks.length - Math.ceil(maxVisibleTasks / 2)) {
+    if (
+      selectedIndex >
+      loopState.tasks.length - Math.ceil(maxVisibleTasks / 2)
+    ) {
       return Math.max(0, loopState.tasks.length - maxVisibleTasks);
     }
     return selectedIndex - Math.floor(maxVisibleTasks / 2);
@@ -327,7 +345,9 @@ export function PrdOverlay({
         return;
       }
       if (key.downArrow || input === "j" || input === "J") {
-        setSelectedIndex((prev) => Math.min(loopState.tasks.length - 1, prev + 1));
+        setSelectedIndex((prev) =>
+          Math.min(loopState.tasks.length - 1, prev + 1)
+        );
         return;
       }
 
@@ -420,7 +440,9 @@ export function PrdOverlay({
           </>
         ) : (
           <Box flexDirection="column" alignItems="center" marginY={2}>
-            <Text dimColor italic>No active loop</Text>
+            <Text dimColor italic>
+              No active loop
+            </Text>
             <Text dimColor>Start a new loop to see PRD and tasks here.</Text>
           </Box>
         )}

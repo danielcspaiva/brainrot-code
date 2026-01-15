@@ -98,7 +98,8 @@ function InputDisplay({ value, colors, width }: InputDisplayProps) {
     } else {
       // Find a good break point (space) or just cut
       const breakPoint = remaining.lastIndexOf(" ", maxTextWidth);
-      const cutPoint = breakPoint > maxTextWidth / 2 ? breakPoint : maxTextWidth;
+      const cutPoint =
+        breakPoint > maxTextWidth / 2 ? breakPoint : maxTextWidth;
       lines.push(remaining.slice(0, cutPoint));
       remaining = remaining.slice(cutPoint).trimStart();
     }
@@ -130,7 +131,11 @@ interface ValidationMessageProps {
   showError: boolean;
 }
 
-function ValidationMessage({ charCount, colors, showError }: ValidationMessageProps) {
+function ValidationMessage({
+  charCount,
+  colors,
+  showError,
+}: ValidationMessageProps) {
   const remaining = MIN_CHARS - charCount;
   const isValid = charCount >= MIN_CHARS;
 
@@ -163,11 +168,7 @@ interface NavigationHintsProps {
 function NavigationHints({ colors, canSubmit, hasBack }: NavigationHintsProps) {
   return (
     <Box justifyContent="center" marginTop={2}>
-      {hasBack && (
-        <Text color={colors.textMuted}>
-          Esc: Go Back |{" "}
-        </Text>
-      )}
+      {hasBack && <Text color={colors.textMuted}>Esc: Go Back | </Text>}
       <Text color={canSubmit ? colors.primary : colors.textMuted}>
         Enter: {canSubmit ? "Submit" : "Need more text"} {navIcons.arrowRight}
       </Text>
@@ -284,11 +285,7 @@ export function FeaturePromptScreen({
 
         {/* Input area */}
         <Box flexDirection="column" alignItems="center">
-          <InputDisplay
-            value={inputValue}
-            colors={colors}
-            width={boxWidth}
-          />
+          <InputDisplay value={inputValue} colors={colors} width={boxWidth} />
         </Box>
 
         {/* Validation message */}

@@ -60,7 +60,8 @@ export function AchievementNotification({
   duration = 3000,
 }: AchievementNotificationProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
+  const [currentAchievement, setCurrentAchievement] =
+    useState<Achievement | null>(null);
 
   // Get current achievement details
   useEffect(() => {
@@ -109,12 +110,13 @@ export function useAchievementNotifications() {
     setIsShowing(false);
   }, []);
 
-  const NotificationComponent = isShowing && queue.length > 0 ? (
-    <AchievementNotification
-      achievementIds={queue}
-      onComplete={handleComplete}
-    />
-  ) : null;
+  const NotificationComponent =
+    isShowing && queue.length > 0 ? (
+      <AchievementNotification
+        achievementIds={queue}
+        onComplete={handleComplete}
+      />
+    ) : null;
 
   return {
     addAchievements,

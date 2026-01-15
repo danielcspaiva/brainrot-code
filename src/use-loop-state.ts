@@ -67,14 +67,18 @@ export interface UseLoopStateResult {
 /**
  * Hook for managing loop state with automatic persistence
  */
-export function useLoopState(options: UseLoopStateOptions = {}): UseLoopStateResult {
+export function useLoopState(
+  options: UseLoopStateOptions = {}
+): UseLoopStateResult {
   const {
     cwd = process.cwd(),
     saveDebounceMs = 500,
     autoLoad = true,
   } = options;
 
-  const [state, setState] = useState<LoopState>(() => createDefaultLoopState(cwd));
+  const [state, setState] = useState<LoopState>(() =>
+    createDefaultLoopState(cwd)
+  );
   const [isLoading, setIsLoading] = useState(autoLoad);
 
   // Track if we need to save
@@ -172,7 +176,9 @@ export function useLoopState(options: UseLoopStateOptions = {}): UseLoopStateRes
                 ...task,
                 status,
                 completedAt:
-                  status === "completed" ? new Date().toISOString() : task.completedAt,
+                  status === "completed"
+                    ? new Date().toISOString()
+                    : task.completedAt,
               }
             : task
         );

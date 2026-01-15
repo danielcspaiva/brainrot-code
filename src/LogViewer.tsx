@@ -68,7 +68,8 @@ function processLogs(
 
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i];
-    const content = viewMode === "condensed" ? stripAnsi(log.content) : log.content;
+    const content =
+      viewMode === "condensed" ? stripAnsi(log.content) : log.content;
 
     // Split multi-line content into separate lines
     const contentLines = content.split("\n");
@@ -140,21 +141,16 @@ function ScrollIndicator({
     return null;
   }
 
-  const scrollPercentage = totalLines > visibleLines
-    ? (currentPosition / (totalLines - visibleLines)) * 100
-    : 0;
+  const scrollPercentage =
+    totalLines > visibleLines
+      ? (currentPosition / (totalLines - visibleLines)) * 100
+      : 0;
 
   return (
     <Box flexDirection="column" marginLeft={1}>
-      <Text dimColor>
-        {scrollPercentage < 100 ? "^" : " "}
-      </Text>
-      <Text dimColor>
-        {Math.round(scrollPercentage)}%
-      </Text>
-      <Text dimColor>
-        {scrollPercentage > 0 ? "v" : " "}
-      </Text>
+      <Text dimColor>{scrollPercentage < 100 ? "^" : " "}</Text>
+      <Text dimColor>{Math.round(scrollPercentage)}%</Text>
+      <Text dimColor>{scrollPercentage > 0 ? "v" : " "}</Text>
     </Box>
   );
 }
@@ -188,9 +184,7 @@ function LogViewerHeader({
         <Text color={viewMode === "full" ? colors.primary : colors.textMuted}>
           {viewMode.toUpperCase()}
         </Text>
-        {hasFocus && (
-          <Text dimColor> | V: toggle view | J/K: scroll</Text>
-        )}
+        {hasFocus && <Text dimColor> | V: toggle view | J/K: scroll</Text>}
       </Box>
     </Box>
   );
@@ -206,7 +200,9 @@ export function LogViewer({
   height,
   initialViewMode = "condensed",
 }: LogViewerProps) {
-  const [viewMode, setViewMode] = useState<"condensed" | "full">(initialViewMode);
+  const [viewMode, setViewMode] = useState<"condensed" | "full">(
+    initialViewMode
+  );
   const [scrollPosition, setScrollPosition] = useState(0);
   const [autoScroll, setAutoScroll] = useState(true);
   const lastLogCountRef = useRef(logs.length);
@@ -237,7 +233,9 @@ export function LogViewer({
 
       // Toggle view mode with 'v'
       if (input === "v" || input === "V") {
-        setViewMode((current) => (current === "condensed" ? "full" : "condensed"));
+        setViewMode((current) =>
+          current === "condensed" ? "full" : "condensed"
+        );
         return;
       }
 

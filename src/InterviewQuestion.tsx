@@ -59,7 +59,13 @@ interface OptionItemProps {
   colors: ReturnType<typeof useThemeColors>;
 }
 
-function OptionItem({ letter, label, isSelected, isCustom, colors }: OptionItemProps) {
+function OptionItem({
+  letter,
+  label,
+  isSelected,
+  isCustom,
+  colors,
+}: OptionItemProps) {
   return (
     <Box>
       <Text
@@ -68,10 +74,7 @@ function OptionItem({ letter, label, isSelected, isCustom, colors }: OptionItemP
       >
         {isSelected ? navIcons.radioSelected : navIcons.radio}
       </Text>
-      <Text color={isSelected ? colors.primary : colors.text}>
-        {" "}
-        {letter}.{" "}
-      </Text>
+      <Text color={isSelected ? colors.primary : colors.text}> {letter}. </Text>
       <Text
         color={isSelected ? colors.primary : colors.text}
         bold={isSelected}
@@ -122,30 +125,35 @@ interface NavigationHintsProps {
   hasBack: boolean;
 }
 
-function NavigationHints({ colors, selectedIndex, hasCustomValue, hasBack }: NavigationHintsProps) {
+function NavigationHints({
+  colors,
+  selectedIndex,
+  hasCustomValue,
+  hasBack,
+}: NavigationHintsProps) {
   const isCustomSelected = selectedIndex === CUSTOM_OPTION_INDEX;
   const canSubmit = !isCustomSelected || hasCustomValue;
 
   return (
-    <Box justifyContent="center" marginTop={2} flexDirection="column" alignItems="center">
+    <Box
+      justifyContent="center"
+      marginTop={2}
+      flexDirection="column"
+      alignItems="center"
+    >
       <Box>
         <Text color={colors.textMuted}>
           {navIcons.arrowUp}/{navIcons.arrowDown}: Navigate | Enter: Select
         </Text>
       </Box>
       <Box marginTop={1}>
-        {hasBack && (
-          <Text color={colors.textMuted}>
-            Esc: Go Back |{" "}
-          </Text>
-        )}
+        {hasBack && <Text color={colors.textMuted}>Esc: Go Back | </Text>}
         <Text color={canSubmit ? colors.primary : colors.textMuted}>
           {isCustomSelected
             ? hasCustomValue
               ? "Enter: Submit custom answer"
               : "Type your answer..."
-            : "Enter: Select option"
-          }
+            : "Enter: Select option"}
         </Text>
       </Box>
     </Box>
@@ -174,7 +182,10 @@ export function InterviewQuestion({
   const displayOptions = useMemo(() => {
     const opts = options.slice(0, 4);
     while (opts.length < 4) {
-      opts.push({ label: "Option " + (opts.length + 1), value: "option" + (opts.length + 1) });
+      opts.push({
+        label: "Option " + (opts.length + 1),
+        value: "option" + (opts.length + 1),
+      });
     }
     return opts;
   }, [options]);
@@ -194,7 +205,13 @@ export function InterviewQuestion({
         onAnswer(selected.value);
       }
     }
-  }, [selectedIndex, customValue, displayOptions, onAnswer, isCustomInputActive]);
+  }, [
+    selectedIndex,
+    customValue,
+    displayOptions,
+    onAnswer,
+    isCustomInputActive,
+  ]);
 
   const handleBack = useCallback(() => {
     if (onBack) {
@@ -210,18 +227,24 @@ export function InterviewQuestion({
       // Navigation with arrow keys (when not typing in custom input)
       if (!isCustomInputActive || !customValue) {
         if (key.upArrow || input === "k" || input === "K") {
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : CUSTOM_OPTION_INDEX));
+          setSelectedIndex((prev) =>
+            prev > 0 ? prev - 1 : CUSTOM_OPTION_INDEX
+          );
           return;
         }
         if (key.downArrow || input === "j" || input === "J") {
-          setSelectedIndex((prev) => (prev < CUSTOM_OPTION_INDEX ? prev + 1 : 0));
+          setSelectedIndex((prev) =>
+            prev < CUSTOM_OPTION_INDEX ? prev + 1 : 0
+          );
           return;
         }
       }
 
       // Quick select with letter keys (only when not in custom input mode)
       if (!isCustomInputActive) {
-        const letterIndex = ["a", "b", "c", "d", "e"].indexOf(input.toLowerCase());
+        const letterIndex = ["a", "b", "c", "d", "e"].indexOf(
+          input.toLowerCase()
+        );
         if (letterIndex !== -1) {
           if (letterIndex === CUSTOM_OPTION_INDEX) {
             // Selecting E switches to custom input mode
@@ -314,7 +337,10 @@ export function InterviewQuestion({
         {/* Options */}
         <Box flexDirection="column" paddingX={2}>
           {displayOptions.map((option, index) => (
-            <Box key={index} marginBottom={index < displayOptions.length - 1 ? 1 : 0}>
+            <Box
+              key={index}
+              marginBottom={index < displayOptions.length - 1 ? 1 : 0}
+            >
               <OptionItem
                 letter={OPTION_LETTERS[index]}
                 label={option.label}

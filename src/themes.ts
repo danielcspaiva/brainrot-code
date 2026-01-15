@@ -117,7 +117,8 @@ export interface Theme {
 const defaultTheme: Theme = {
   id: "default",
   name: "Default",
-  description: "Modern terminal aesthetic with cyan, magenta, and yellow accents",
+  description:
+    "Modern terminal aesthetic with cyan, magenta, and yellow accents",
   colors: {
     primary: "cyan",
     secondary: "magenta",
@@ -401,7 +402,10 @@ export function getThemeIds(): ThemeId[] {
 /**
  * Get theme info for display (name and description)
  */
-export function getThemeInfo(id: ThemeId): { name: string; description: string } {
+export function getThemeInfo(id: ThemeId): {
+  name: string;
+  description: string;
+} {
   const theme = getTheme(id);
   return { name: theme.name, description: theme.description };
 }

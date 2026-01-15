@@ -50,7 +50,8 @@ const PATTERNS = {
   loopPaused: /(?:ralph[- ]?loop|loop)\s*(?:paused|suspended)/i,
   loopCompleted: /(?:ralph[- ]?loop|loop)\s*(?:completed|finished|done)/i,
   loopErrored: /(?:ralph[- ]?loop|loop)\s*(?:error|failed|crashed)/i,
-  loopWaiting: /(?:waiting\s*for\s*(?:user\s*)?input|needs?\s*input|awaiting\s*response)/i,
+  loopWaiting:
+    /(?:waiting\s*for\s*(?:user\s*)?input|needs?\s*input|awaiting\s*response)/i,
 
   // Progress patterns
   stepProgress: /(?:step|task)\s*(\d+)\s*(?:of|\/)\s*(\d+)/i,
@@ -62,7 +63,8 @@ const PATTERNS = {
   toolUse: /(?:using|calling|invoking)\s*(?:tool\s*)?[:=-]?\s*(\w+)/i,
   toolName: /(?:tool|function)\s*[:=-]?\s*["']?(\w+)["']?/i,
   agentThinking: /(?:thinking|analyzing|processing|reading|writing|searching)/i,
-  agentAction: /(?:creating|updating|modifying|deleting|reading|writing|running|executing)\s+(.+)/i,
+  agentAction:
+    /(?:creating|updating|modifying|deleting|reading|writing|running|executing)\s+(.+)/i,
 
   // User attention patterns
   question: /\?\s*$/,
@@ -243,8 +245,10 @@ function parseAgentActivity(
     // Extract the matching word
     const thinkingMatch = cleanedOutput.match(PATTERNS.agentThinking);
     if (thinkingMatch) {
-      activity.currentAction = thinkingMatch[0].charAt(0).toUpperCase() +
-        thinkingMatch[0].slice(1).toLowerCase() + "...";
+      activity.currentAction =
+        thinkingMatch[0].charAt(0).toUpperCase() +
+        thinkingMatch[0].slice(1).toLowerCase() +
+        "...";
     }
     return activity;
   }
@@ -352,8 +356,14 @@ export function parseOutput(
   return {
     status: parseLoopStatus(cleanedOutput, currentState.status),
     progress: parseProgress(cleanedOutput, currentState.progress),
-    agentActivity: parseAgentActivity(cleanedOutput, currentState.agentActivity),
-    userAttention: parseUserAttention(cleanedOutput, currentState.userAttention),
+    agentActivity: parseAgentActivity(
+      cleanedOutput,
+      currentState.agentActivity
+    ),
+    userAttention: parseUserAttention(
+      cleanedOutput,
+      currentState.userAttention
+    ),
     lastUpdated: new Date(),
     rawOutput: output,
   };

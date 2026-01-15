@@ -494,7 +494,9 @@ export function LoopManagementPanel({
             <Text color={colors.secondary} bold>
               Attention Required
             </Text>
-            <Text color={colors.secondary}>{loopState.userAttention.reason}</Text>
+            <Text color={colors.secondary}>
+              {loopState.userAttention.reason}
+            </Text>
             {loopState.userAttention.prompt && (
               <Text dimColor>{loopState.userAttention.prompt}</Text>
             )}

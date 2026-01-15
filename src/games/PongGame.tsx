@@ -65,7 +65,11 @@ function createInitialState(width: number, height: number): PongState {
   };
 }
 
-function resetBall(width: number, height: number, towardsPlayer: boolean): Ball {
+function resetBall(
+  width: number,
+  height: number,
+  towardsPlayer: boolean
+): Ball {
   return {
     x: Math.floor(width / 2),
     y: Math.floor(height / 2),
@@ -246,7 +250,14 @@ function PausedOverlay() {
 /**
  * Pong game component
  */
-export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
+export function PongGame({
+  hasFocus,
+  dimensions,
+  onExit,
+  loopAttention,
+  onLoopAlertDismiss,
+  onGameStateChange,
+}: GameComponentProps) {
   const boardWidth = Math.max(dimensions.width - 2, 25);
   const boardHeight = Math.max(dimensions.height - 5, 12);
 
@@ -311,7 +322,12 @@ export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAl
         setWasPlayingBeforeAlert(false);
       }
     }
-  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
+  }, [
+    loopAttention?.needsAttention,
+    state.status,
+    showLoopAlert,
+    wasPlayingBeforeAlert,
+  ]);
 
   const updateGame = useCallback(
     (deltaTime: number) => {
@@ -373,7 +389,8 @@ export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAl
         ) {
           newVx = -Math.abs(newVx) * 1.05;
           newBallX = aiPaddleX - 1;
-          const hitPos = (newBallY - newAiY - PADDLE_HEIGHT / 2) / (PADDLE_HEIGHT / 2);
+          const hitPos =
+            (newBallY - newAiY - PADDLE_HEIGHT / 2) / (PADDLE_HEIGHT / 2);
           newVy += hitPos * 0.2;
         }
 
@@ -521,7 +538,10 @@ export function PongGame({ hasFocus, dimensions, onExit, loopAttention, onLoopAl
         {state.status === "game_over" && state.winner ? (
           <GameOverOverlay winner={state.winner} />
         ) : state.status === "paused" && showLoopAlert && loopAttention ? (
-          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
+          <LoopAlertOverlay
+            attention={loopAttention}
+            onDismiss={onLoopAlertDismiss}
+          />
         ) : state.status === "paused" ? (
           <PausedOverlay />
         ) : (

@@ -115,7 +115,10 @@ function TaskItem({ task, isSelected, showDependencies }: TaskItemProps) {
       {showDependencies && task.dependsOn && task.dependsOn.length > 0 && (
         <Box marginLeft={4}>
           <Text dimColor>
-            Depends on: {task.dependsOn.map((dep) => `#${dep.replace("task-", "")}`).join(", ")}
+            Depends on:{" "}
+            {task.dependsOn
+              .map((dep) => `#${dep.replace("task-", "")}`)
+              .join(", ")}
           </Text>
         </Box>
       )}
@@ -143,18 +146,10 @@ function StatsSummary({ tasks }: StatsSummaryProps) {
 
   return (
     <Box flexDirection="row" gap={2}>
-      <Text color={colors.text}>
-        {stats.total} tasks:
-      </Text>
-      <Text color={colors.success}>
-        {stats.small} small
-      </Text>
-      <Text color={colors.warning}>
-        {stats.medium} medium
-      </Text>
-      <Text color={colors.error}>
-        {stats.large} large
-      </Text>
+      <Text color={colors.text}>{stats.total} tasks:</Text>
+      <Text color={colors.success}>{stats.small} small</Text>
+      <Text color={colors.warning}>{stats.medium} medium</Text>
+      <Text color={colors.error}>{stats.large} large</Text>
     </Box>
   );
 }
@@ -189,7 +184,10 @@ export function TaskBreakdownScreen({
     return selectedIndex - Math.floor(maxVisibleTasks / 2);
   }, [selectedIndex, maxVisibleTasks, tasks.length]);
 
-  const visibleTasks = tasks.slice(scrollOffset, scrollOffset + maxVisibleTasks);
+  const visibleTasks = tasks.slice(
+    scrollOffset,
+    scrollOffset + maxVisibleTasks
+  );
 
   // Handle keyboard input
   useInput(
@@ -243,7 +241,9 @@ export function TaskBreakdownScreen({
       {/* Feature name */}
       <Box marginBottom={1}>
         <Text dimColor italic>
-          {featureName.length > 50 ? featureName.slice(0, 50) + "..." : featureName}
+          {featureName.length > 50
+            ? featureName.slice(0, 50) + "..."
+            : featureName}
         </Text>
       </Box>
 
@@ -281,7 +281,9 @@ export function TaskBreakdownScreen({
         {/* Scroll indicator */}
         {scrollOffset + maxVisibleTasks < tasks.length && (
           <Box justifyContent="center" marginTop={1}>
-            <Text dimColor>... {tasks.length - scrollOffset - maxVisibleTasks} more below ...</Text>
+            <Text dimColor>
+              ... {tasks.length - scrollOffset - maxVisibleTasks} more below ...
+            </Text>
           </Box>
         )}
       </Box>

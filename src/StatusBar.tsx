@@ -6,7 +6,15 @@
  */
 
 import { Box, Text } from "ink";
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useThemeColors, useStatusColors } from "./useTheme.js";
 import { statusIcons, alertIcons, truncate } from "./theme.js";
 import type { LoopTask, LoopProgress } from "./loop-state.js";
@@ -61,7 +69,8 @@ const GameStatusContext = createContext<GameStatusContextValue>({
  * Provider for game status context
  */
 export function GameStatusProvider({ children }: { children: ReactNode }) {
-  const [gameState, setGameStateInternal] = useState<CurrentGameState>(initialGameState);
+  const [gameState, setGameStateInternal] =
+    useState<CurrentGameState>(initialGameState);
 
   const setGameState = useCallback((updates: Partial<CurrentGameState>) => {
     setGameStateInternal((prev) => ({ ...prev, ...updates }));
@@ -72,7 +81,9 @@ export function GameStatusProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <GameStatusContext.Provider value={{ gameState, setGameState, clearGameState }}>
+    <GameStatusContext.Provider
+      value={{ gameState, setGameState, clearGameState }}
+    >
       {children}
     </GameStatusContext.Provider>
   );
@@ -135,7 +146,8 @@ const LoopInfoContext = createContext<LoopInfoContextValue>({
  * Provider for loop info context
  */
 export function LoopInfoProvider({ children }: { children: ReactNode }) {
-  const [loopInfo, setLoopInfoInternal] = useState<LoopInfoState>(initialLoopInfo);
+  const [loopInfo, setLoopInfoInternal] =
+    useState<LoopInfoState>(initialLoopInfo);
 
   const setLoopInfo = useCallback((updates: Partial<LoopInfoState>) => {
     setLoopInfoInternal((prev) => ({ ...prev, ...updates }));
@@ -153,7 +165,9 @@ export function LoopInfoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <LoopInfoContext.Provider value={{ loopInfo, setLoopInfo, clearLoopInfo, addTokenUsage }}>
+    <LoopInfoContext.Provider
+      value={{ loopInfo, setLoopInfo, clearLoopInfo, addTokenUsage }}
+    >
       {children}
     </LoopInfoContext.Provider>
   );
@@ -200,7 +214,12 @@ function formatTokens(tokens: number): string {
 /**
  * Context for which hotkeys to display in the footer
  */
-export type HotkeyContext = "default" | "interview" | "game" | "loop" | "overlay";
+export type HotkeyContext =
+  | "default"
+  | "interview"
+  | "game"
+  | "loop"
+  | "overlay";
 
 export interface StatusBarProps {
   /** Loop/process status */
@@ -226,7 +245,8 @@ function LoopStatusSection({
   const statusColors = useStatusColors();
   const colors = useThemeColors();
 
-  const statusColor = statusColors[loopStatus as keyof typeof statusColors] ?? colors.textMuted;
+  const statusColor =
+    statusColors[loopStatus as keyof typeof statusColors] ?? colors.textMuted;
   const icon = statusIcons[loopStatus as keyof typeof statusIcons] ?? "?";
 
   return (
@@ -234,7 +254,10 @@ function LoopStatusSection({
       <Text color={statusColor} bold>
         {icon}
       </Text>
-      <Text color={statusColor}> {loopStatus.toUpperCase().replace(/_/g, " ")}</Text>
+      <Text color={statusColor}>
+        {" "}
+        {loopStatus.toUpperCase().replace(/_/g, " ")}
+      </Text>
       {needsAttention && (
         <Text color={colors.secondary} bold>
           {" "}
@@ -266,10 +289,20 @@ function GameInfoSection({
   }
 
   const statusText =
-    status === "paused" ? " [PAUSED]" : status === "game_over" ? " [GAME OVER]" : "";
-  const statusColor = status === "paused" ? colors.warning : status === "game_over" ? colors.error : undefined;
+    status === "paused"
+      ? " [PAUSED]"
+      : status === "game_over"
+        ? " [GAME OVER]"
+        : "";
+  const statusColor =
+    status === "paused"
+      ? colors.warning
+      : status === "game_over"
+        ? colors.error
+        : undefined;
 
-  const isNewHighScore = score !== null && highScore !== null && score > highScore;
+  const isNewHighScore =
+    score !== null && highScore !== null && score > highScore;
 
   return (
     <Box>
@@ -279,7 +312,10 @@ function GameInfoSection({
       {score !== null && (
         <>
           <Text dimColor>: </Text>
-          <Text color={isNewHighScore ? colors.success : colors.accent} bold={isNewHighScore}>
+          <Text
+            color={isNewHighScore ? colors.success : colors.accent}
+            bold={isNewHighScore}
+          >
             {score}
           </Text>
           <Text dimColor> pts</Text>
@@ -301,7 +337,10 @@ interface HotkeyHint {
 /**
  * Get hotkeys based on the current application context
  */
-function getContextualHotkeys(context: HotkeyContext, isPlaying: boolean): HotkeyHint[] {
+function getContextualHotkeys(
+  context: HotkeyContext,
+  isPlaying: boolean
+): HotkeyHint[] {
   switch (context) {
     case "interview":
       // During interview/onboarding flow
@@ -369,7 +408,13 @@ function getContextualHotkeys(context: HotkeyContext, isPlaying: boolean): Hotke
 /**
  * Keyboard hints section - displays contextual hotkeys
  */
-function KeyHintsSection({ isPlaying, context = "default" }: { isPlaying: boolean; context?: HotkeyContext }) {
+function KeyHintsSection({
+  isPlaying,
+  context = "default",
+}: {
+  isPlaying: boolean;
+  context?: HotkeyContext;
+}) {
   const colors = useThemeColors();
 
   // Get contextual hotkeys
@@ -485,26 +530,37 @@ function LoopInfoSection() {
  * Main Status Bar component
  * Shows loop status, loop info, current game/score, and keyboard hints in 1-2 lines
  */
-export function StatusBar({ loopStatus, needsAttention, condensed = true, hotkeyContext = "default" }: StatusBarProps) {
+export function StatusBar({
+  loopStatus,
+  needsAttention,
+  condensed = true,
+  hotkeyContext = "default",
+}: StatusBarProps) {
   const { gameState } = useGameStatus();
   const { loopInfo } = useLoopInfo();
-  const isPlaying = gameState.status === "playing" || gameState.status === "paused";
-  const hasLoopInfo = loopInfo.progress || loopInfo.currentTask || loopInfo.startedAt;
+  const isPlaying =
+    gameState.status === "playing" || gameState.status === "paused";
+  const hasLoopInfo =
+    loopInfo.progress || loopInfo.currentTask || loopInfo.startedAt;
 
   // Determine effective hotkey context
   // If playing a game, use "game" context unless explicitly overridden
-  const effectiveContext: HotkeyContext = hotkeyContext !== "default"
-    ? hotkeyContext
-    : isPlaying
-      ? "game"
-      : "default";
+  const effectiveContext: HotkeyContext =
+    hotkeyContext !== "default"
+      ? hotkeyContext
+      : isPlaying
+        ? "game"
+        : "default";
 
   if (condensed) {
     // Single line layout
     return (
       <Box flexDirection="row" justifyContent="space-between" width="100%">
         <Box>
-          <LoopStatusSection loopStatus={loopStatus} needsAttention={needsAttention} />
+          <LoopStatusSection
+            loopStatus={loopStatus}
+            needsAttention={needsAttention}
+          />
           {/* Show loop info when available */}
           {hasLoopInfo && (
             <>
@@ -535,7 +591,10 @@ export function StatusBar({ loopStatus, needsAttention, condensed = true, hotkey
     <Box flexDirection="column">
       <Box flexDirection="row" justifyContent="space-between" width="100%">
         <Box>
-          <LoopStatusSection loopStatus={loopStatus} needsAttention={needsAttention} />
+          <LoopStatusSection
+            loopStatus={loopStatus}
+            needsAttention={needsAttention}
+          />
           {hasLoopInfo && (
             <>
               <Separator />

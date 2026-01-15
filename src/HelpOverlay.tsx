@@ -118,9 +118,13 @@ function SectionTabs({ sections, activeSection }: SectionTabsProps) {
           {index > 0 && <Text dimColor> | </Text>}
           <Text
             bold={activeSection === section.id}
-            color={activeSection === section.id ? colors.primary : colors.textMuted}
+            color={
+              activeSection === section.id ? colors.primary : colors.textMuted
+            }
           >
-            {activeSection === section.id ? `[${section.title}]` : section.title}
+            {activeSection === section.id
+              ? `[${section.title}]`
+              : section.title}
           </Text>
         </Box>
       ))}
@@ -180,13 +184,17 @@ export function HelpOverlay({ hasFocus, onClose }: HelpOverlayProps) {
   const colors = useThemeColors();
 
   const currentSection = useMemo(
-    () => shortcutSections.find((s) => s.id === activeSection) ?? shortcutSections[0],
+    () =>
+      shortcutSections.find((s) => s.id === activeSection) ??
+      shortcutSections[0],
     [activeSection]
   );
 
   // Handle tab switching
   const handleTabChange = (direction: "next" | "prev") => {
-    const currentIdx = shortcutSections.findIndex((s) => s.id === activeSection);
+    const currentIdx = shortcutSections.findIndex(
+      (s) => s.id === activeSection
+    );
     let newIdx: number;
     if (direction === "next") {
       newIdx = (currentIdx + 1) % shortcutSections.length;

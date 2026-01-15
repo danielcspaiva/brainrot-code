@@ -329,7 +329,11 @@ export async function saveConfig(config: BrainrotConfig): Promise<void> {
       version: CONFIG_VERSION,
     };
 
-    await writeFile(CONFIG_FILE, JSON.stringify(configToSave, null, 2), "utf-8");
+    await writeFile(
+      CONFIG_FILE,
+      JSON.stringify(configToSave, null, 2),
+      "utf-8"
+    );
   } catch (error) {
     // Log error but don't throw - config saving is not critical
     console.error("Failed to save configuration:", error);

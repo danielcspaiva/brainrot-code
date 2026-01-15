@@ -61,7 +61,10 @@ const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
 
 /** Piece definitions with their rotations */
-const PIECE_DEFINITIONS: Record<TetrominoType, { blocks: Point[]; color: string }> = {
+const PIECE_DEFINITIONS: Record<
+  TetrominoType,
+  { blocks: Point[]; color: string }
+> = {
   I: {
     blocks: [
       { x: 0, y: 1 },
@@ -372,7 +375,10 @@ function GameBoard({
     // Add ghost piece (drop preview)
     let ghostY = piecePosition.y;
     while (
-      isValidPosition(board, currentPiece, { x: piecePosition.x, y: ghostY + 1 })
+      isValidPosition(board, currentPiece, {
+        x: piecePosition.x,
+        y: ghostY + 1,
+      })
     ) {
       ghostY++;
     }
@@ -517,7 +523,13 @@ function GameHUD({
 /**
  * Tetris game component
  */
-export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss, onGameStateChange }: GameComponentProps) {
+export function TetrisGame({
+  hasFocus,
+  onExit,
+  loopAttention,
+  onLoopAlertDismiss,
+  onGameStateChange,
+}: GameComponentProps) {
   const [state, setState] = useState<TetrisState>(() => createInitialState());
   const lastDropTime = useRef(0);
   const clearAnimTimer = useRef(0);
@@ -530,11 +542,13 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
   const { highScore, leaderboard, submitScore } = useHighScores("tetris");
 
   // Stats tracking
-  const { startSession, endSession, isSessionActive } = useGameSession("tetris");
+  const { startSession, endSession, isSessionActive } =
+    useGameSession("tetris");
 
   // Report game state changes to status bar
   useEffect(() => {
-    const mappedStatus = state.status === "leaderboard" ? "game_over" : state.status;
+    const mappedStatus =
+      state.status === "leaderboard" ? "game_over" : state.status;
     onGameStateChange?.({
       score: state.score,
       status: mappedStatus,
@@ -561,7 +575,12 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
         setWasPlayingBeforeAlert(false);
       }
     }
-  }, [loopAttention?.needsAttention, state.status, showLoopAlert, wasPlayingBeforeAlert]);
+  }, [
+    loopAttention?.needsAttention,
+    state.status,
+    showLoopAlert,
+    wasPlayingBeforeAlert,
+  ]);
 
   // Start session when game starts
   useEffect(() => {
@@ -572,13 +591,19 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
 
   // Submit score when game ends
   useEffect(() => {
-    if (state.status === "game_over" && !scoreSubmittedRef.current && state.score > 0) {
+    if (
+      state.status === "game_over" &&
+      !scoreSubmittedRef.current &&
+      state.score > 0
+    ) {
       scoreSubmittedRef.current = true;
-      submitScore(state.score, { level: state.level, lines: state.lines }).then((position) => {
-        if (position > 0) {
-          setState((prev) => ({ ...prev, leaderboardPosition: position }));
+      submitScore(state.score, { level: state.level, lines: state.lines }).then(
+        (position) => {
+          if (position > 0) {
+            setState((prev) => ({ ...prev, leaderboardPosition: position }));
+          }
         }
-      });
+      );
     }
 
     // Record stats when game ends
@@ -586,7 +611,14 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
       statsSubmittedRef.current = true;
       void endSession(state.score, undefined, { linesCleared: state.lines });
     }
-  }, [state.status, state.score, state.level, state.lines, submitScore, endSession]);
+  }, [
+    state.status,
+    state.score,
+    state.level,
+    state.lines,
+    submitScore,
+    endSession,
+  ]);
 
   // Lock piece and check for lines
   const lockPiece = useCallback(() => {
@@ -915,7 +947,10 @@ export function TetrisGame({ hasFocus, onExit, loopAttention, onLoopAlertDismiss
         </Box>
       ) : state.status === "paused" && showLoopAlert && loopAttention ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <LoopAlertOverlay attention={loopAttention} onDismiss={onLoopAlertDismiss} />
+          <LoopAlertOverlay
+            attention={loopAttention}
+            onDismiss={onLoopAlertDismiss}
+          />
         </Box>
       ) : state.status === "paused" ? (
         <Box flexGrow={1} justifyContent="center" alignItems="center">

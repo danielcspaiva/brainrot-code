@@ -37,7 +37,9 @@ export interface UseClaudeCodeResult {
   clearOutput: () => void;
 }
 
-export function useClaudeCode(options: UseClaudeCodeOptions = {}): UseClaudeCodeResult {
+export function useClaudeCode(
+  options: UseClaudeCodeOptions = {}
+): UseClaudeCodeResult {
   const {
     executablePath,
     defaultArgs = [],
@@ -89,19 +91,28 @@ export function useClaudeCode(options: UseClaudeCodeOptions = {}): UseClaudeCode
     };
   }, []);
 
-  const spawn = useCallback((args: string[] = [], cwd?: string) => {
-    if (processRef.current) {
-      setError(null);
-      const spawnOptions: ClaudeCodeSpawnOptions = {
-        executablePath,
-        args: [...defaultArgs, ...args],
-        cwd: cwd ?? workingDirectory,
-        env: environment,
-        shutdownTimeout,
-      };
-      processRef.current.spawn(spawnOptions);
-    }
-  }, [executablePath, defaultArgs, workingDirectory, environment, shutdownTimeout]);
+  const spawn = useCallback(
+    (args: string[] = [], cwd?: string) => {
+      if (processRef.current) {
+        setError(null);
+        const spawnOptions: ClaudeCodeSpawnOptions = {
+          executablePath,
+          args: [...defaultArgs, ...args],
+          cwd: cwd ?? workingDirectory,
+          env: environment,
+          shutdownTimeout,
+        };
+        processRef.current.spawn(spawnOptions);
+      }
+    },
+    [
+      executablePath,
+      defaultArgs,
+      workingDirectory,
+      environment,
+      shutdownTimeout,
+    ]
+  );
 
   const stop = useCallback(async () => {
     if (processRef.current) {

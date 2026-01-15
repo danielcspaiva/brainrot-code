@@ -184,7 +184,9 @@ export function loopStateExists(cwd: string = process.cwd()): boolean {
  * Load loop state from disk
  * Returns default state if file doesn't exist or is invalid
  */
-export async function loadLoopState(cwd: string = process.cwd()): Promise<LoopState> {
+export async function loadLoopState(
+  cwd: string = process.cwd()
+): Promise<LoopState> {
   const filePath = getLoopStateFilePath(cwd);
 
   try {
@@ -281,7 +283,8 @@ export function calculateProgress(tasks: LoopTask[]): LoopProgress {
     totalTasks,
     completedTasks,
     currentTaskId: currentTask?.id,
-    percentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+    percentage:
+      totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
   };
 }
 
@@ -300,7 +303,10 @@ export async function updateTaskStatus(
       ? {
           ...task,
           status,
-          completedAt: status === "completed" ? new Date().toISOString() : task.completedAt,
+          completedAt:
+            status === "completed"
+              ? new Date().toISOString()
+              : task.completedAt,
         }
       : task
   );
@@ -335,7 +341,9 @@ export async function setPrdAndTasks(
 /**
  * Clear/reset loop state
  */
-export async function clearLoopState(cwd: string = process.cwd()): Promise<LoopState> {
+export async function clearLoopState(
+  cwd: string = process.cwd()
+): Promise<LoopState> {
   const newState = createDefaultLoopState(cwd);
   await saveLoopState(newState, cwd);
   return newState;
@@ -358,13 +366,13 @@ export function getProgressSummary(state: LoopState): string {
     return "No active loop";
   }
 
-  const taskProgress = progress.totalTasks > 0
-    ? `${progress.completedTasks}/${progress.totalTasks} tasks`
-    : "No tasks";
+  const taskProgress =
+    progress.totalTasks > 0
+      ? `${progress.completedTasks}/${progress.totalTasks} tasks`
+      : "No tasks";
 
-  const percentage = progress.totalTasks > 0
-    ? ` (${progress.percentage}%)`
-    : "";
+  const percentage =
+    progress.totalTasks > 0 ? ` (${progress.percentage}%)` : "";
 
   return `${taskProgress}${percentage}`;
 }

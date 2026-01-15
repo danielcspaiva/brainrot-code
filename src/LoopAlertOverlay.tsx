@@ -15,9 +15,7 @@ interface LoopAlertOverlayProps {
   onDismiss?: () => void;
 }
 
-export function LoopAlertOverlay({
-  attention,
-}: LoopAlertOverlayProps) {
+export function LoopAlertOverlay({ attention }: LoopAlertOverlayProps) {
   const icon = getAlertIcon(attention.type ?? "info");
   const color = getAlertColor(attention.type ?? "info");
 

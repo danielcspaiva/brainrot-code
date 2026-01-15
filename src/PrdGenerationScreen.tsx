@@ -84,7 +84,11 @@ async function generatePrdFromInterview(
   // Phase 5: Breaking down tasks
   onProgress("Breaking down tasks...");
   await delay(900);
-  const taskBreakdown = generateTaskBreakdown(featureDescription, answers, complexity);
+  const taskBreakdown = generateTaskBreakdown(
+    featureDescription,
+    answers,
+    complexity
+  );
 
   // Phase 6: Defining success criteria
   onProgress("Defining success criteria...");
@@ -117,14 +121,19 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function generateOverview(featureDescription: string, answers: Record<string, string>): string {
+function generateOverview(
+  featureDescription: string,
+  answers: Record<string, string>
+): string {
   const projectType = answers.scope_type || "project";
   const targetUsers = answers.users_primary || "users";
   const priority = answers.priority_focus || "balanced";
 
-  return `This ${projectType} feature will ${featureDescription.toLowerCase()}. ` +
+  return (
+    `This ${projectType} feature will ${featureDescription.toLowerCase()}. ` +
     `The primary audience is ${targetUsers.replace("_", " ")}, ` +
-    `with a focus on ${priority.replace("_", " ")} implementation.`;
+    `with a focus on ${priority.replace("_", " ")} implementation.`
+  );
 }
 
 function generateRequirements(
@@ -194,22 +203,32 @@ function generateTechnicalApproach(answers: Record<string, string>): string {
   // Project type approach
   const projectApproaches: Record<string, string> = {
     web: "Build using modern web technologies with component-based architecture",
-    backend: "Implement RESTful API endpoints with proper service layer separation",
+    backend:
+      "Implement RESTful API endpoints with proper service layer separation",
     cli: "Create command-line interface with clear argument parsing and help text",
     mobile: "Develop mobile-first UI with responsive design patterns",
   };
-  parts.push(projectApproaches[answers.scope_type] || "Follow standard development practices");
+  parts.push(
+    projectApproaches[answers.scope_type] ||
+      "Follow standard development practices"
+  );
 
   // Constraint-based approach
   if (answers.tech_constraints === "performance") {
-    parts.push("Profile and optimize critical paths, implement caching where appropriate");
+    parts.push(
+      "Profile and optimize critical paths, implement caching where appropriate"
+    );
   } else if (answers.tech_constraints === "security") {
-    parts.push("Apply security headers, input validation, and authentication middleware");
+    parts.push(
+      "Apply security headers, input validation, and authentication middleware"
+    );
   }
 
   // Testing approach
   if (answers.tech_testing && answers.tech_testing !== "manual") {
-    parts.push(`Set up ${answers.tech_testing} testing framework with CI integration`);
+    parts.push(
+      `Set up ${answers.tech_testing} testing framework with CI integration`
+    );
   }
 
   // Scope approach
@@ -371,7 +390,9 @@ function generateSuccessCriteria(answers: Record<string, string>): string[] {
     merged: "Code reviewed and merged to main branch",
     deployed: "Successfully deployed to production environment",
   };
-  criteria.push(successMap[answers.success_criteria] || "Feature implementation complete");
+  criteria.push(
+    successMap[answers.success_criteria] || "Feature implementation complete"
+  );
 
   // Additional criteria based on constraints
   if (answers.tech_constraints === "performance") {
@@ -430,7 +451,9 @@ function compilePrdContent(
       sections.push(`  - ${task.description}`);
     }
     if (task.dependsOn && task.dependsOn.length > 0) {
-      const depNums = task.dependsOn.map((dep) => dep.replace("task-", "#")).join(", ");
+      const depNums = task.dependsOn
+        .map((dep) => dep.replace("task-", "#"))
+        .join(", ");
       sections.push(`  - Dependencies: ${depNums}`);
     }
   });
@@ -472,7 +495,10 @@ interface ElapsedTimeProps {
 
 function ElapsedTime({ elapsedMs }: ElapsedTimeProps) {
   const seconds = Math.floor(elapsedMs / 1000);
-  const formattedTime = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const formattedTime =
+    seconds < 60
+      ? `${seconds}s`
+      : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 
   return (
     <Box marginTop={1}>
@@ -494,7 +520,9 @@ export function PrdGenerationScreen({
   dimensions,
 }: PrdGenerationScreenProps) {
   const colors = useThemeColors();
-  const [progressMessage, setProgressMessage] = useState("Initializing PRD generation...");
+  const [progressMessage, setProgressMessage] = useState(
+    "Initializing PRD generation..."
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -586,9 +614,7 @@ export function PrdGenerationScreen({
           <>
             {/* Spinner with message */}
             <Box marginBottom={1}>
-              <Text color={colors.primary}>
-                {spinner.frame}
-              </Text>
+              <Text color={colors.primary}>{spinner.frame}</Text>
               <Text> </Text>
               <Text bold color={colors.text}>
                 Generating PRD...
@@ -621,7 +647,8 @@ export function PrdGenerationScreen({
       {/* Feature context */}
       <Box marginTop={2} paddingX={2} width={contentWidth}>
         <Text dimColor italic>
-          Building: {interviewResult.featureDescription.length > 40
+          Building:{" "}
+          {interviewResult.featureDescription.length > 40
             ? interviewResult.featureDescription.slice(0, 40) + "..."
             : interviewResult.featureDescription}
         </Text>
