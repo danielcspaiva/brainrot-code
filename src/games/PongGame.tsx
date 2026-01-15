@@ -1,18 +1,16 @@
 /**
- * Pong Game
+ * Pong Game - OpenTUI Version
  *
  * Single-player pong against AI.
  * Demonstrates continuous movement and collision detection.
  */
 
-import { Box, Text, useInput } from "ink";
+import { useKeyboard } from "@opentui/react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { GameComponentProps, GameInfo } from "../game-types.js";
-import { useGameLoop } from "../use-game-loop.js";
-import { useGameSession } from "../use-stats.js";
-import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
-import { boxChars, gameChars } from "../theme.js";
-import { useThemeColors, useGameColors } from "../useTheme.js";
+import { useGameLoop } from "../hooks/useGameLoop.js";
+import { useHighScores } from "../data/useHighScores.js";
+import { useGameSession } from "../data/useStats.js";
 
 /** Pong game metadata */
 export const pongGameInfo: GameInfo = {
@@ -46,6 +44,20 @@ const BALL_SPEED = 0.5;
 const PADDLE_SPEED = 1;
 const WIN_SCORE = 5;
 
+/** Colors for game elements */
+const COLORS = {
+  border: "#888888",
+  centerLine: "#555555",
+  player: "#00FF00",
+  opponent: "#FF6600",
+  ball: "#FFFF00",
+  score: "#FFFFFF",
+  hint: "#666666",
+  paused: "#FFFF00",
+  win: "#00FF00",
+  lose: "#FF0000",
+};
+
 function createInitialState(width: number, height: number): PongState {
   const centerY = Math.floor(height / 2);
 
@@ -78,177 +90,8 @@ function resetBall(
   };
 }
 
-interface GameBoardProps {
-  state: PongState;
-  width: number;
-  height: number;
-}
-
-function GameBoard({ state, width, height }: GameBoardProps) {
-  const colors = useThemeColors();
-  const gameColors = useGameColors();
-  const board: string[][] = [];
-
-  // Initialize empty board
-  for (let y = 0; y < height; y++) {
-    const row: string[] = [];
-    for (let x = 0; x < width; x++) {
-      // Border
-      if (y === 0 || y === height - 1) {
-        row.push(boxChars.double.horizontal);
-      } else if (x === 0 || x === width - 1) {
-        row.push(" ");
-      } else if (x === Math.floor(width / 2)) {
-        row.push(boxChars.light.vertical); // Center line
-      } else {
-        row.push(" ");
-      }
-    }
-    board.push(row);
-  }
-
-  // Corners and edges
-  if (height > 0 && width > 0) {
-    board[0][0] = boxChars.double.topLeft;
-    board[0][width - 1] = boxChars.double.topRight;
-    board[height - 1][0] = boxChars.double.bottomLeft;
-    board[height - 1][width - 1] = boxChars.double.bottomRight;
-  }
-
-  // Player paddle (left side)
-  const paddleX = 2;
-  for (let i = 0; i < PADDLE_HEIGHT; i++) {
-    const y = state.playerY + i;
-    if (y > 0 && y < height - 1) {
-      board[y][paddleX] = gameChars.paddle;
-    }
-  }
-
-  // AI paddle (right side)
-  const aiPaddleX = width - 3;
-  for (let i = 0; i < PADDLE_HEIGHT; i++) {
-    const y = state.aiY + i;
-    if (y > 0 && y < height - 1) {
-      board[y][aiPaddleX] = gameChars.paddle;
-    }
-  }
-
-  // Ball
-  const ballX = Math.round(state.ball.x);
-  const ballY = Math.round(state.ball.y);
-  if (ballY > 0 && ballY < height - 1 && ballX > 0 && ballX < width - 1) {
-    board[ballY][ballX] = gameChars.ball;
-  }
-
-  return (
-    <Box flexDirection="column">
-      {board.map((row, y) => (
-        <Box key={y}>
-          {row.map((cell, x) => {
-            let color: string | undefined;
-
-            const isPlayerPaddle =
-              x === paddleX &&
-              y >= state.playerY &&
-              y < state.playerY + PADDLE_HEIGHT;
-            const isAIPaddle =
-              x === aiPaddleX &&
-              y >= state.aiY &&
-              y < state.aiY + PADDLE_HEIGHT;
-            const isBall = x === ballX && y === ballY;
-
-            if (isPlayerPaddle) {
-              color = gameColors.player;
-            } else if (isAIPaddle) {
-              color = gameColors.opponent;
-            } else if (isBall) {
-              color = colors.accent;
-            } else if (cell === boxChars.light.vertical) {
-              color = colors.border;
-            } else if (cell !== " ") {
-              color = colors.border;
-            }
-
-            return (
-              <Text key={x} color={color}>
-                {cell}
-              </Text>
-            );
-          })}
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-function ScoreDisplay({
-  playerScore,
-  aiScore,
-  fps,
-}: {
-  playerScore: number;
-  aiScore: number;
-  fps: number;
-}) {
-  const gameColors = useGameColors();
-  return (
-    <Box justifyContent="space-between" paddingX={1}>
-      <Box>
-        <Text color={gameColors.player}>Player: </Text>
-        <Text bold color={gameColors.player}>
-          {playerScore}
-        </Text>
-      </Box>
-      <Box>
-        <Text dimColor>First to {WIN_SCORE} wins</Text>
-      </Box>
-      <Box>
-        <Text color={gameColors.opponent}>AI: </Text>
-        <Text bold color={gameColors.opponent}>
-          {aiScore}
-        </Text>
-      </Box>
-      <Text dimColor>{fps} FPS</Text>
-    </Box>
-  );
-}
-
-function GameOverOverlay({ winner }: { winner: "player" | "ai" }) {
-  const colors = useThemeColors();
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={2}
-    >
-      <Text bold color={winner === "player" ? colors.success : colors.error}>
-        {winner === "player" ? "YOU WIN!" : "AI WINS!"}
-      </Text>
-      <Text dimColor>Press R to play again</Text>
-    </Box>
-  );
-}
-
-function PausedOverlay() {
-  const colors = useThemeColors();
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={2}
-    >
-      <Text bold color={colors.warning}>
-        PAUSED
-      </Text>
-      <Text dimColor>Press P to resume</Text>
-    </Box>
-  );
-}
-
 /**
- * Pong game component
+ * Pong game component for OpenTUI
  */
 export function PongGame({
   hasFocus,
@@ -259,8 +102,12 @@ export function PongGame({
   onGameStateChange,
   autoPauseEnabled = true,
 }: GameComponentProps) {
+  // Calculate game board size (leaving room for HUD)
   const boardWidth = Math.max(dimensions.width - 2, 25);
   const boardHeight = Math.max(dimensions.height - 5, 12);
+
+  const { highScore, submit } = useHighScores("pong");
+  const session = useGameSession("pong");
 
   const [state, setState] = useState<PongState>(() =>
     createInitialState(boardWidth, boardHeight)
@@ -269,40 +116,44 @@ export function PongGame({
   const [playerDirection, setPlayerDirection] = useState<-1 | 0 | 1>(0);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
-  const statsSubmittedRef = useRef(false);
+  const playerDirectionRef = useRef<-1 | 0 | 1>(0);
 
-  // Stats tracking
-  const { startSession, endSession, isSessionActive } = useGameSession("pong");
+  // Keep ref in sync with state
+  useEffect(() => {
+    playerDirectionRef.current = playerDirection;
+  }, [playerDirection]);
 
   // Report game state changes to status bar
   useEffect(() => {
     onGameStateChange?.({
       score: state.playerScore,
       status: state.status,
-      highScore: WIN_SCORE, // Use win score as reference
+      highScore: highScore || null,
     });
-  }, [state.playerScore, state.status, onGameStateChange]);
+  }, [state.playerScore, state.status, highScore, onGameStateChange]);
+
+  useEffect(() => {
+    if (state.status === "playing" && !session.isActive) {
+      session.startSession();
+    }
+  }, [session, state.status]);
+
+  useEffect(() => {
+    if (state.status === "game_over") {
+      if (state.playerScore > 0) {
+        void submit(state.playerScore);
+      }
+      void session.endSession({
+        score: state.playerScore,
+        won: state.winner === "player",
+      });
+    }
+  }, [session, state.playerScore, state.status, state.winner, submit]);
 
   // Reset game when dimensions change
   useEffect(() => {
     setState(createInitialState(boardWidth, boardHeight));
   }, [boardWidth, boardHeight]);
-
-  // Start session when game starts
-  useEffect(() => {
-    if (state.status === "playing" && !isSessionActive) {
-      startSession();
-    }
-  }, [state.status, isSessionActive, startSession]);
-
-  // Record stats when game ends
-  useEffect(() => {
-    if (state.status === "game_over" && !statsSubmittedRef.current) {
-      statsSubmittedRef.current = true;
-      const won = state.winner === "player";
-      void endSession(state.playerScore, won);
-    }
-  }, [state.status, state.winner, state.playerScore, endSession]);
 
   // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
@@ -312,7 +163,6 @@ export function PongGame({
       setState((prev) => ({ ...prev, status: "paused" }));
     } else if (!loopAttention?.needsAttention && showLoopAlert) {
       setShowLoopAlert(false);
-      // Auto-resume if we were playing before the alert
       if (wasPlayingBeforeAlert) {
         setState((prev) => {
           if (prev.status === "paused") {
@@ -337,9 +187,10 @@ export function PongGame({
         if (prev.status !== "playing") return prev;
 
         const dt = deltaTime / 16; // Normalize to ~60fps
+        const currentDirection = playerDirectionRef.current;
 
         // Move player paddle
-        let newPlayerY = prev.playerY + playerDirection * PADDLE_SPEED * dt;
+        let newPlayerY = prev.playerY + currentDirection * PADDLE_SPEED * dt;
         newPlayerY = Math.max(
           1,
           Math.min(boardHeight - PADDLE_HEIGHT - 1, newPlayerY)
@@ -458,7 +309,7 @@ export function PongGame({
         };
       });
     },
-    [boardWidth, boardHeight, playerDirection]
+    [boardWidth, boardHeight]
   );
 
   // Game loop
@@ -470,53 +321,58 @@ export function PongGame({
     },
   });
 
-  // Handle input
-  useInput(
-    (input, key) => {
-      if (!hasFocus) return;
+  // Handle keyboard input
+  useKeyboard(
+    useCallback(
+      (key) => {
+        if (!hasFocus) return;
 
-      // Exit to menu
-      if (input === "q" || input === "Q" || key.escape) {
-        onExit();
-        return;
-      }
+        const keyName = key.name.toLowerCase();
 
-      // Restart
-      if (input === "r" || input === "R") {
-        statsSubmittedRef.current = false;
-        setState(createInitialState(boardWidth, boardHeight));
-        return;
-      }
-
-      // Dismiss loop alert with Enter key
-      if (key.return && showLoopAlert) {
-        setShowLoopAlert(false);
-        onLoopAlertDismiss?.();
-        return;
-      }
-
-      // Pause/unpause
-      if (input === "p" || input === "P") {
-        // If we're showing loop alert, dismiss it and resume
-        if (showLoopAlert) {
-          setShowLoopAlert(false);
-          setWasPlayingBeforeAlert(false);
+        // Exit to menu
+        if (keyName === "q" || keyName === "escape") {
+          onExit();
+          return;
         }
-        setState((prev) => ({
-          ...prev,
-          status: prev.status === "playing" ? "paused" : "playing",
-        }));
-        return;
-      }
 
-      // Movement
-      if (key.upArrow || input === "w" || input === "W") {
-        setPlayerDirection(-1);
-      } else if (key.downArrow || input === "s" || input === "S") {
-        setPlayerDirection(1);
-      }
-    },
-    { isActive: hasFocus }
+        // Restart
+        if (keyName === "r") {
+          setState(createInitialState(boardWidth, boardHeight));
+          setPlayerDirection(0);
+          return;
+        }
+
+        // Dismiss loop alert with Enter key
+        if (keyName === "return" && showLoopAlert) {
+          setShowLoopAlert(false);
+          onLoopAlertDismiss?.();
+          return;
+        }
+
+        // Pause/unpause
+        if (keyName === "p") {
+          if (showLoopAlert) {
+            setShowLoopAlert(false);
+            setWasPlayingBeforeAlert(false);
+          }
+          setState((prev) => ({
+            ...prev,
+            status: prev.status === "playing" ? "paused" : "playing",
+          }));
+          return;
+        }
+
+        // Movement - only set direction while playing
+        if (state.status !== "playing") return;
+
+        if (keyName === "up" || keyName === "arrowup" || keyName === "w") {
+          setPlayerDirection(-1);
+        } else if (keyName === "down" || keyName === "arrowdown" || keyName === "s") {
+          setPlayerDirection(1);
+        }
+      },
+      [hasFocus, state.status, showLoopAlert, boardWidth, boardHeight, onExit, onLoopAlertDismiss]
+    )
   );
 
   // Reset direction when keys released (approximate with timeout)
@@ -528,29 +384,166 @@ export function PongGame({
     return undefined;
   }, [playerDirection]);
 
-  return (
-    <Box flexDirection="column" height="100%" overflow="hidden">
-      <ScoreDisplay
-        playerScore={state.playerScore}
-        aiScore={state.aiScore}
-        fps={loopInfo.fps}
-      />
+  // Build the game board as a 2D array
+  const board: string[][] = [];
+  for (let y = 0; y < boardHeight; y++) {
+    const row: string[] = [];
+    for (let x = 0; x < boardWidth; x++) {
+      // Border (top/bottom only)
+      if (y === 0 || y === boardHeight - 1) {
+        row.push("═");
+      } else if (x === Math.floor(boardWidth / 2)) {
+        // Center line
+        row.push("│");
+      } else {
+        row.push(" ");
+      }
+    }
+    board.push(row);
+  }
 
-      <Box flexGrow={1} justifyContent="center" alignItems="center">
-        {state.status === "game_over" && state.winner ? (
-          <GameOverOverlay winner={state.winner} />
-        ) : state.status === "paused" && showLoopAlert && loopAttention ? (
-          <LoopAlertOverlay
-            attention={loopAttention}
-            onDismiss={onLoopAlertDismiss}
-          />
-        ) : state.status === "paused" ? (
-          <PausedOverlay />
-        ) : (
-          <GameBoard state={state} width={boardWidth} height={boardHeight} />
-        )}
-      </Box>
-    </Box>
+  // Corners
+  if (boardHeight > 0 && boardWidth > 0) {
+    board[0][0] = "╔";
+    board[0][boardWidth - 1] = "╗";
+    board[boardHeight - 1][0] = "╚";
+    board[boardHeight - 1][boardWidth - 1] = "╝";
+  }
+
+  // Player paddle (left side)
+  const paddleX = 2;
+  for (let i = 0; i < PADDLE_HEIGHT; i++) {
+    const y = Math.round(state.playerY) + i;
+    if (y > 0 && y < boardHeight - 1) {
+      board[y][paddleX] = "█";
+    }
+  }
+
+  // AI paddle (right side)
+  const aiPaddleX = boardWidth - 3;
+  for (let i = 0; i < PADDLE_HEIGHT; i++) {
+    const y = Math.round(state.aiY) + i;
+    if (y > 0 && y < boardHeight - 1) {
+      board[y][aiPaddleX] = "█";
+    }
+  }
+
+  // Ball
+  const ballX = Math.round(state.ball.x);
+  const ballY = Math.round(state.ball.y);
+  if (ballY > 0 && ballY < boardHeight - 1 && ballX > 0 && ballX < boardWidth - 1) {
+    board[ballY][ballX] = "●";
+  }
+
+  // Render HUD (score display)
+  const renderHUD = () => (
+    <box style={{ flexDirection: "row", justifyContent: "space-between", paddingLeft: 1, paddingRight: 1 }}>
+      <text>
+        <span fg={COLORS.player}>Player: </span>
+        <span fg={COLORS.player}>{state.playerScore}</span>
+      </text>
+      <text fg={COLORS.hint}>First to {WIN_SCORE} wins</text>
+      <text>
+        <span fg={COLORS.opponent}>AI: </span>
+        <span fg={COLORS.opponent}>{state.aiScore}</span>
+      </text>
+      <text fg={COLORS.hint}>{loopInfo.fps} FPS</text>
+    </box>
+  );
+
+  // Render game over overlay
+  const renderGameOver = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      <text fg={state.winner === "player" ? COLORS.win : COLORS.lose}>
+        <strong>{state.winner === "player" ? "YOU WIN!" : "AI WINS!"}</strong>
+      </text>
+      <text fg={COLORS.hint}>Press R to play again | Q to exit</text>
+    </box>
+  );
+
+  // Render paused overlay
+  const renderPaused = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      {showLoopAlert && loopAttention ? (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>CLAUDE NEEDS INPUT</strong>
+          </text>
+          <text fg={COLORS.hint}>{loopAttention.reason || "Waiting for input..."}</text>
+          <text fg={COLORS.hint}>Press Enter to dismiss | P to resume</text>
+        </>
+      ) : (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>PAUSED</strong>
+          </text>
+          <text fg={COLORS.hint}>Press P to resume</text>
+        </>
+      )}
+    </box>
+  );
+
+  // Render the game board
+  const renderBoard = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      {board.map((row, y) => (
+        <box key={y} style={{ flexDirection: "row" }}>
+          {row.map((cell, x) => {
+            let color: string = COLORS.border;
+
+            // Player paddle
+            const isPlayerPaddle =
+              x === paddleX &&
+              y >= Math.round(state.playerY) &&
+              y < Math.round(state.playerY) + PADDLE_HEIGHT;
+            // AI paddle
+            const isAIPaddle =
+              x === aiPaddleX &&
+              y >= Math.round(state.aiY) &&
+              y < Math.round(state.aiY) + PADDLE_HEIGHT;
+            // Ball
+            const isBall = x === ballX && y === ballY;
+            // Center line
+            const isCenterLine = x === Math.floor(boardWidth / 2) && cell === "│";
+
+            if (isPlayerPaddle) {
+              color = COLORS.player;
+            } else if (isAIPaddle) {
+              color = COLORS.opponent;
+            } else if (isBall) {
+              color = COLORS.ball;
+            } else if (isCenterLine) {
+              color = COLORS.centerLine;
+            }
+
+            return (
+              <text key={x} fg={color}>
+                {cell}
+              </text>
+            );
+          })}
+        </box>
+      ))}
+    </box>
+  );
+
+  // Render controls hint
+  const renderControls = () => (
+    <box style={{ paddingLeft: 1 }}>
+      <text fg={COLORS.hint}>↑/↓ or W/S: Move | P: Pause | R: Restart | Q: Exit</text>
+    </box>
+  );
+
+  return (
+    <box style={{ flexDirection: "column", flexGrow: 1 }}>
+      {renderHUD()}
+      {state.status === "game_over"
+        ? renderGameOver()
+        : state.status === "paused"
+        ? renderPaused()
+        : renderBoard()}
+      {renderControls()}
+    </box>
   );
 }
 

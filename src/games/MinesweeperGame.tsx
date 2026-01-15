@@ -1,19 +1,16 @@
 /**
- * Minesweeper Game
+ * Minesweeper Game - OpenTUI Version
  *
- * Classic Minesweeper puzzle game implemented with the game framework.
- * Features: Multiple difficulty levels, flag mechanics, timer, mine count.
+ * Classic Minesweeper puzzle game implemented with OpenTUI components.
+ * Features: Multiple difficulty levels, flag mechanics, timer, cursor-based controls.
  */
 
-import { Box, Text, useInput } from "ink";
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useKeyboard } from "@opentui/react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
-import { useGameLoop } from "../use-game-loop.js";
-import { useBestTimes } from "../use-high-scores.js";
-import { useGameSession } from "../use-stats.js";
-import { Leaderboard, formatTime } from "../Leaderboard.js";
-import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
-import { useThemeColors, useGameColors } from "../useTheme.js";
+import { useGameLoop } from "../hooks/useGameLoop.js";
+import { useHighScores } from "../data/useHighScores.js";
+import { useGameSession } from "../data/useStats.js";
 
 /** Minesweeper game metadata */
 export const minesweeperGameInfo: GameInfo = {
@@ -48,13 +45,7 @@ interface Cell {
 }
 
 /** Game status */
-type GameStatus =
-  | "playing"
-  | "paused"
-  | "won"
-  | "lost"
-  | "selecting_difficulty"
-  | "leaderboard";
+type GameStatus = "playing" | "paused" | "won" | "lost" | "selecting_difficulty";
 
 /** Game state */
 interface MinesweeperState {
@@ -65,8 +56,55 @@ interface MinesweeperState {
   timeElapsed: number;
   difficultyIndex: number;
   firstClick: boolean;
-  /** Position on leaderboard after winning (0 if not on leaderboard) */
-  leaderboardPosition: number;
+  bestTimes: number[];
+}
+
+/** UI Colors */
+const COLORS = {
+  border: "#888888",
+  cursor: "#00FFFF",
+  hidden: "#888888",
+  flag: "#FF0000",
+  mine: "#FF0000",
+  wrongFlag: "#FF6600",
+  gameOver: "#FF0000",
+  won: "#00FF00",
+  paused: "#FFFF00",
+  hint: "#666666",
+  selected: "#00FF00",
+  difficulty: "#00FFFF",
+  time: "#FFFF00",
+  // Number colors for adjacent mine counts
+  num1: "#0000FF", // Blue
+  num2: "#00AA00", // Green
+  num3: "#FF0000", // Red
+  num4: "#000080", // Dark blue
+  num5: "#800000", // Maroon
+  num6: "#008080", // Teal
+  num7: "#000000", // Black
+  num8: "#808080", // Gray
+};
+
+/** Get color for adjacent mine count */
+function getNumberColor(num: number): string {
+  const colorMap: Record<number, string> = {
+    1: COLORS.num1,
+    2: COLORS.num2,
+    3: COLORS.num3,
+    4: COLORS.num4,
+    5: COLORS.num5,
+    6: COLORS.num6,
+    7: COLORS.num7,
+    8: COLORS.num8,
+  };
+  return colorMap[num] || COLORS.hint;
+}
+
+/** Format time as MM:SS */
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
 /** Create an empty board */
@@ -191,7 +229,10 @@ function countFlags(board: Cell[][]): number {
 }
 
 /** Create initial game state */
-function createInitialState(difficultyIndex: number): MinesweeperState {
+function createInitialState(
+  difficultyIndex: number,
+  bestTimes: number[] = [0, 0, 0]
+): MinesweeperState {
   const diff = DIFFICULTIES[difficultyIndex];
   return {
     board: createEmptyBoard(diff.width, diff.height),
@@ -201,237 +242,12 @@ function createInitialState(difficultyIndex: number): MinesweeperState {
     timeElapsed: 0,
     difficultyIndex,
     firstClick: true,
-    leaderboardPosition: 0,
+    bestTimes,
   };
 }
 
-/** Hook to get theme-aware number colors for adjacent mine counts */
-function useNumberColors(): Record<number, string> {
-  const colors = useThemeColors();
-  const gameColors = useGameColors();
-
-  return useMemo(() => ({
-    1: colors.info,         // Blue in default theme
-    2: colors.success,      // Green in default theme
-    3: colors.error,        // Red in default theme
-    4: colors.secondary,    // Magenta/Dark blue in default theme
-    5: gameColors.obstacle, // Red/Maroon in default theme
-    6: colors.primary,      // Cyan in default theme
-    7: colors.text,         // Text color
-    8: colors.textMuted,    // Gray in default theme
-  }), [colors, gameColors]);
-}
-
-/** Game board component */
-function GameBoard({
-  board,
-  cursor,
-  status,
-}: {
-  board: Cell[][];
-  cursor: Point;
-  status: GameStatus;
-}) {
-  const colors = useThemeColors();
-  const gameColors = useGameColors();
-  const numberColors = useNumberColors();
-  const width = board[0].length;
-  const gameOver = status === "won" || status === "lost";
-
-  /** Get cell display character with theme-aware colors */
-  const getCellDisplay = useCallback((
-    cell: Cell,
-    isCursor: boolean
-  ): { char: string; color?: string; bgColor?: string } => {
-    const bgColor = isCursor ? colors.primary : undefined;
-
-    if (!cell.revealed) {
-      if (cell.flagged) {
-        // Show incorrect flags on game over
-        if (gameOver && !cell.hasMine) {
-          return { char: "✗", color: colors.error, bgColor };
-        }
-        return { char: "⚑", color: gameColors.obstacle, bgColor };
-      }
-      return { char: "■", color: colors.textMuted, bgColor };
-    }
-
-    if (cell.hasMine) {
-      return { char: "💣", color: colors.error, bgColor };
-    }
-
-    if (cell.adjacentMines === 0) {
-      return { char: " ", bgColor };
-    }
-
-    return {
-      char: cell.adjacentMines.toString(),
-      color: numberColors[cell.adjacentMines] || colors.text,
-      bgColor,
-    };
-  }, [colors, gameColors, numberColors, gameOver]);
-
-  return (
-    <Box flexDirection="column">
-      {/* Top border */}
-      <Text color={colors.border}>{"┌" + "──".repeat(width) + "┐"}</Text>
-
-      {/* Board rows */}
-      {board.map((row, y) => (
-        <Box key={y}>
-          <Text color={colors.border}>│</Text>
-          {row.map((cell, x) => {
-            const isCursor = x === cursor.x && y === cursor.y;
-            const display = getCellDisplay(cell, isCursor);
-            return (
-              <Text
-                key={x}
-                color={display.color}
-                backgroundColor={display.bgColor}
-              >
-                {display.char.length === 1 ? display.char + " " : display.char}
-              </Text>
-            );
-          })}
-          <Text color={colors.border}>│</Text>
-        </Box>
-      ))}
-
-      {/* Bottom border */}
-      <Text color={colors.border}>{"└" + "──".repeat(width) + "┘"}</Text>
-    </Box>
-  );
-}
-
-/** Compact horizontal stats bar */
-function GameStats({
-  minesRemaining,
-  timeElapsed,
-  difficulty,
-  bestTime,
-}: {
-  minesRemaining: number;
-  timeElapsed: number;
-  difficulty: string;
-  bestTime: number;
-}) {
-  return (
-    <Box paddingX={1} gap={2}>
-      <Text>
-        <Text bold>Mines:</Text>{" "}
-        <Text color="red">{minesRemaining.toString().padStart(2, " ")}</Text>
-      </Text>
-      <Text>
-        <Text bold>Time:</Text>{" "}
-        <Text color="yellow">{formatTime(timeElapsed)}</Text>
-      </Text>
-      <Text>
-        <Text bold color="cyan">{difficulty}</Text>
-      </Text>
-      <Text dimColor>
-        Best: {formatTime(bestTime)}
-      </Text>
-    </Box>
-  );
-}
-
-/** Difficulty selector */
-function DifficultySelector({
-  selectedIndex,
-  bestTimes,
-}: {
-  selectedIndex: number;
-  bestTimes: number[];
-}) {
-  return (
-    <Box flexDirection="column" alignItems="center" padding={2}>
-      <Text bold color="cyan">
-        Select Difficulty
-      </Text>
-      <Text> </Text>
-      {DIFFICULTIES.map((diff, i) => (
-        <Box key={i}>
-          <Text
-            color={i === selectedIndex ? "green" : "white"}
-            bold={i === selectedIndex}
-          >
-            {i === selectedIndex ? "▶ " : "  "}
-            {diff.name.padEnd(8)} {diff.width}x{diff.height} ({diff.mines}{" "}
-            mines) Best: {formatTime(bestTimes[i])}
-          </Text>
-        </Box>
-      ))}
-      <Text> </Text>
-      <Text dimColor>↑↓ to select, Enter to start</Text>
-    </Box>
-  );
-}
-
-/** Game over overlay */
-function GameOverOverlay({
-  won,
-  timeElapsed,
-  leaderboardPosition,
-}: {
-  won: boolean;
-  timeElapsed: number;
-  leaderboardPosition: number;
-}) {
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={1}
-    >
-      <Text bold color={won ? "green" : "red"}>
-        {won ? "YOU WIN!" : "GAME OVER"}
-      </Text>
-      <Text>
-        Time: <Text color="yellow">{formatTime(timeElapsed)}</Text>
-      </Text>
-      {won && leaderboardPosition > 0 && (
-        <Box
-          flexDirection="column"
-          alignItems="center"
-          borderStyle="double"
-          borderColor="green"
-          paddingX={2}
-          paddingY={1}
-        >
-          <Text bold color="green">
-            NEW BEST TIME!
-          </Text>
-          <Text>
-            You ranked{" "}
-            <Text color="cyan">
-              {leaderboardPosition === 1
-                ? "1st"
-                : leaderboardPosition === 2
-                  ? "2nd"
-                  : leaderboardPosition === 3
-                    ? "3rd"
-                    : `${leaderboardPosition}th`}
-            </Text>{" "}
-            place!
-          </Text>
-        </Box>
-      )}
-      <Text dimColor>
-        R to restart | H for leaderboard | D to change difficulty
-      </Text>
-    </Box>
-  );
-}
-
-/** Get game ID for a specific difficulty */
-function getGameIdForDifficulty(difficultyIndex: number): string {
-  const diffName = DIFFICULTIES[difficultyIndex].name.toLowerCase();
-  return `minesweeper-${diffName}`;
-}
-
 /**
- * Minesweeper game component
+ * Minesweeper game component for OpenTUI
  */
 export function MinesweeperGame({
   hasFocus,
@@ -441,24 +257,16 @@ export function MinesweeperGame({
   onGameStateChange,
   autoPauseEnabled = true,
 }: GameComponentProps) {
+  const { highScore, submit } = useHighScores("minesweeper", "asc");
+  const session = useGameSession("minesweeper");
+
   const [state, setState] = useState<MinesweeperState>(() =>
     createInitialState(0)
   );
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState(0);
-  const scoreSubmittedRef = useRef(false);
-  const statsSubmittedRef = useRef(false);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
-
-  // High score persistence for current difficulty
-  const { bestTime, leaderboard, submitTime } = useBestTimes(
-    getGameIdForDifficulty(state.difficultyIndex)
-  );
-
-  // Stats tracking
-  const { startSession, endSession, isSessionActive } =
-    useGameSession("minesweeper");
 
   // Report game state changes to status bar
   useEffect(() => {
@@ -466,26 +274,46 @@ export function MinesweeperGame({
     const mappedStatus =
       state.status === "won" || state.status === "lost"
         ? "game_over"
-        : state.status === "selecting_difficulty" ||
-            state.status === "leaderboard"
+        : state.status === "selecting_difficulty"
           ? "menu"
           : state.status;
     onGameStateChange?.({
-      score: state.timeElapsed, // Use time as "score" for minesweeper
+      score: state.timeElapsed,
       status: mappedStatus,
-      highScore: bestTime > 0 ? bestTime : null,
+      highScore: highScore > 0 ? highScore : null,
     });
-  }, [state.timeElapsed, state.status, bestTime, onGameStateChange]);
+  }, [state.timeElapsed, state.status, highScore, onGameStateChange]);
+
+  useEffect(() => {
+    if (state.status === "playing" && !session.isActive) {
+      session.startSession();
+    }
+  }, [session, state.status]);
+
+  useEffect(() => {
+    if (state.status === "won") {
+      if (state.timeElapsed > 0) {
+        void submit(state.timeElapsed);
+      }
+      void session.endSession({ score: state.timeElapsed, won: true });
+    }
+    if (state.status === "lost") {
+      void session.endSession({ score: state.timeElapsed, won: false });
+    }
+  }, [session, state.status, state.timeElapsed, submit]);
 
   // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
-    if (autoPauseEnabled && loopAttention?.needsAttention && state.status === "playing") {
+    if (
+      autoPauseEnabled &&
+      loopAttention?.needsAttention &&
+      state.status === "playing"
+    ) {
       setWasPlayingBeforeAlert(true);
       setShowLoopAlert(true);
       setState((prev) => ({ ...prev, status: "paused" }));
     } else if (!loopAttention?.needsAttention && showLoopAlert) {
       setShowLoopAlert(false);
-      // Auto-resume if we were playing before the alert
       if (wasPlayingBeforeAlert) {
         setState((prev) => {
           if (prev.status === "paused") {
@@ -503,57 +331,6 @@ export function MinesweeperGame({
     showLoopAlert,
     wasPlayingBeforeAlert,
   ]);
-
-  // Get best times for all difficulties for the selector
-  const { bestTime: easyBest } = useBestTimes("minesweeper-easy");
-  const { bestTime: mediumBest } = useBestTimes("minesweeper-medium");
-  const { bestTime: hardBest } = useBestTimes("minesweeper-hard");
-  const allBestTimes = [easyBest, mediumBest, hardBest];
-
-  // Start session when game starts
-  useEffect(() => {
-    if (state.status === "playing" && !isSessionActive) {
-      startSession();
-    }
-  }, [state.status, isSessionActive, startSession]);
-
-  // Submit time when game is won
-  useEffect(() => {
-    if (
-      state.status === "won" &&
-      !scoreSubmittedRef.current &&
-      state.timeElapsed > 0
-    ) {
-      scoreSubmittedRef.current = true;
-      submitTime(state.timeElapsed, {
-        difficulty: DIFFICULTIES[state.difficultyIndex].name,
-      }).then((position) => {
-        if (position > 0) {
-          setState((prev) => ({ ...prev, leaderboardPosition: position }));
-        }
-      });
-    }
-  }, [state.status, state.timeElapsed, state.difficultyIndex, submitTime]);
-
-  // Record stats when game ends
-  useEffect(() => {
-    if (
-      (state.status === "won" || state.status === "lost") &&
-      !statsSubmittedRef.current
-    ) {
-      statsSubmittedRef.current = true;
-      const won = state.status === "won";
-      const customStats: Record<string, number> = {};
-      if (won && state.timeElapsed > 0) {
-        customStats.fastestWin = state.timeElapsed;
-      }
-      void endSession(
-        0,
-        won,
-        Object.keys(customStats).length > 0 ? customStats : undefined
-      );
-    }
-  }, [state.status, state.timeElapsed, endSession]);
 
   // Game timer
   useEffect(() => {
@@ -650,10 +427,19 @@ export function MinesweeperGame({
           }
 
           if (checkWin(newBoard)) {
+            // Update best time if this is a new record
+            const newBestTimes = [...prev.bestTimes];
+            if (
+              newBestTimes[prev.difficultyIndex] === 0 ||
+              prev.timeElapsed < newBestTimes[prev.difficultyIndex]
+            ) {
+              newBestTimes[prev.difficultyIndex] = prev.timeElapsed;
+            }
             return {
               ...prev,
               board: newBoard,
               status: "won",
+              bestTimes: newBestTimes,
             };
           }
 
@@ -689,10 +475,19 @@ export function MinesweeperGame({
 
       // Check win condition
       if (checkWin(newBoard)) {
+        // Update best time if this is a new record
+        const newBestTimes = [...prev.bestTimes];
+        if (
+          newBestTimes[prev.difficultyIndex] === 0 ||
+          prev.timeElapsed < newBestTimes[prev.difficultyIndex]
+        ) {
+          newBestTimes[prev.difficultyIndex] = prev.timeElapsed;
+        }
         return {
           ...prev,
           board: newBoard,
           status: "won",
+          bestTimes: newBestTimes,
         };
       }
 
@@ -742,192 +537,338 @@ export function MinesweeperGame({
     });
   }, []);
 
-  // Game loop
+  // Game loop (just for consistency, minesweeper doesn't need frame timing)
   useGameLoop({
-    targetFps: 10, // Low FPS needed, mostly cursor-driven
+    targetFps: 10,
     isActive: hasFocus && state.status === "playing",
   });
 
   // Handle input
-  useInput(
-    (input, key) => {
-      if (!hasFocus) return;
+  useKeyboard(
+    useCallback(
+      (key) => {
+        if (!hasFocus) return;
 
-      // Exit
-      if (input === "q" || input === "Q" || key.escape) {
-        onExit();
-        return;
-      }
+        const keyName = key.name.toLowerCase();
 
-      // Difficulty selection mode
-      if (state.status === "selecting_difficulty") {
-        if (key.upArrow) {
-          setSelectedDifficulty((prev) =>
-            prev > 0 ? prev - 1 : DIFFICULTIES.length - 1
-          );
-        } else if (key.downArrow) {
-          setSelectedDifficulty((prev) =>
-            prev < DIFFICULTIES.length - 1 ? prev + 1 : 0
-          );
-        } else if (key.return) {
-          scoreSubmittedRef.current = false;
-          setState(createInitialState(selectedDifficulty));
+        // Exit
+        if (keyName === "q" || keyName === "escape") {
+          onExit();
+          return;
         }
-        return;
-      }
 
-      // Change difficulty
-      if (input === "d" || input === "D") {
-        setSelectedDifficulty(state.difficultyIndex);
-        setState((prev) => ({ ...prev, status: "selecting_difficulty" }));
-        return;
-      }
+        // Difficulty selection mode
+        if (state.status === "selecting_difficulty") {
+          if (keyName === "up" || keyName === "arrowup" || keyName === "w") {
+            setSelectedDifficulty((prev) =>
+              prev > 0 ? prev - 1 : DIFFICULTIES.length - 1
+            );
+          } else if (keyName === "down" || keyName === "arrowdown" || keyName === "s") {
+            setSelectedDifficulty((prev) =>
+              prev < DIFFICULTIES.length - 1 ? prev + 1 : 0
+            );
+          } else if (keyName === "return") {
+            setState((prev) =>
+              createInitialState(selectedDifficulty, prev.bestTimes)
+            );
+          }
+          return;
+        }
 
-      // Show leaderboard (when game over)
-      if (
-        (input === "h" || input === "H") &&
-        (state.status === "won" ||
-          state.status === "lost" ||
-          state.status === "leaderboard")
-      ) {
-        setState((prev) => ({
-          ...prev,
-          status: prev.status === "leaderboard" ? "won" : "leaderboard",
-        }));
-        return;
-      }
+        // Change difficulty
+        if (keyName === "d") {
+          setSelectedDifficulty(state.difficultyIndex);
+          setState((prev) => ({ ...prev, status: "selecting_difficulty" }));
+          return;
+        }
 
-      // Dismiss loop alert with Enter key when paused and showing alert
-      if (key.return && showLoopAlert && state.status === "paused") {
-        setShowLoopAlert(false);
-        onLoopAlertDismiss?.();
-        return;
-      }
-
-      // Pause/unpause
-      if (input === "p" || input === "P") {
-        // If we're showing loop alert, dismiss it and resume
-        if (showLoopAlert) {
+        // Dismiss loop alert with Enter key when paused and showing alert
+        if (keyName === "return" && showLoopAlert && state.status === "paused") {
           setShowLoopAlert(false);
-          setWasPlayingBeforeAlert(false);
+          onLoopAlertDismiss?.();
+          return;
         }
-        setState((prev) => ({
-          ...prev,
-          status:
-            prev.status === "playing"
-              ? "paused"
-              : prev.status === "paused"
-                ? "playing"
-                : prev.status,
-        }));
-        return;
-      }
 
-      // Restart
-      if (input === "r" || input === "R") {
-        scoreSubmittedRef.current = false;
-        statsSubmittedRef.current = false;
-        setState(createInitialState(state.difficultyIndex));
-        return;
-      }
+        // Pause/unpause
+        if (keyName === "p") {
+          if (showLoopAlert) {
+            setShowLoopAlert(false);
+            setWasPlayingBeforeAlert(false);
+          }
+          setState((prev) => ({
+            ...prev,
+            status:
+              prev.status === "playing"
+                ? "paused"
+                : prev.status === "paused"
+                  ? "playing"
+                  : prev.status,
+          }));
+          return;
+        }
 
-      if (state.status !== "playing") return;
+        // Restart
+        if (keyName === "r") {
+          setState((prev) =>
+            createInitialState(prev.difficultyIndex, prev.bestTimes)
+          );
+          return;
+        }
 
-      // Movement
-      if (key.leftArrow || input === "a" || input === "A") {
-        moveCursor(-1, 0);
-      } else if (key.rightArrow || input === "d" || input === "D") {
-        moveCursor(1, 0);
-      } else if (key.upArrow || input === "w" || input === "W") {
-        moveCursor(0, -1);
-      } else if (key.downArrow || input === "s" || input === "S") {
-        moveCursor(0, 1);
-      } else if (input === " " || key.return) {
-        reveal();
-      } else if (input === "f" || input === "F") {
-        toggleFlag();
-      }
-    },
-    { isActive: hasFocus }
+        if (state.status !== "playing") return;
+
+        // Movement
+        if (keyName === "left" || keyName === "arrowleft" || keyName === "a") {
+          moveCursor(-1, 0);
+        } else if (keyName === "right" || keyName === "arrowright") {
+          // Note: 'd' is for difficulty, so only use arrow key
+          moveCursor(1, 0);
+        } else if (keyName === "up" || keyName === "arrowup" || keyName === "w") {
+          moveCursor(0, -1);
+        } else if (keyName === "down" || keyName === "arrowdown" || keyName === "s") {
+          moveCursor(0, 1);
+        } else if (keyName === "space" || keyName === " ") {
+          reveal();
+        } else if (keyName === "f") {
+          toggleFlag();
+        }
+      },
+      [
+        hasFocus,
+        state.status,
+        state.difficultyIndex,
+        selectedDifficulty,
+        showLoopAlert,
+        moveCursor,
+        reveal,
+        toggleFlag,
+        onExit,
+        onLoopAlertDismiss,
+      ]
+    )
   );
 
   const diff = DIFFICULTIES[state.difficultyIndex];
+  const gameOver = state.status === "won" || state.status === "lost";
+
+  // Get cell display
+  const getCellDisplay = (
+    cell: Cell,
+    isCursor: boolean
+  ): { char: string; color?: string; bgColor?: string } => {
+    const bgColor = isCursor ? COLORS.cursor : undefined;
+
+    if (!cell.revealed) {
+      if (cell.flagged) {
+        // Show incorrect flags on game over
+        if (gameOver && !cell.hasMine) {
+          return { char: "✗", color: COLORS.wrongFlag, bgColor };
+        }
+        return { char: "⚑", color: COLORS.flag, bgColor };
+      }
+      return { char: "■", color: COLORS.hidden, bgColor };
+    }
+
+    if (cell.hasMine) {
+      return { char: "💣", color: COLORS.mine, bgColor };
+    }
+
+    if (cell.adjacentMines === 0) {
+      return { char: " ", bgColor };
+    }
+
+    return {
+      char: cell.adjacentMines.toString(),
+      color: getNumberColor(cell.adjacentMines),
+      bgColor,
+    };
+  };
+
+  // Render stats bar
+  const renderStats = () => (
+    <box
+      style={{
+        flexDirection: "row",
+        gap: 2,
+        paddingLeft: 1,
+        paddingRight: 1,
+      }}
+    >
+      <text>
+        <strong>Mines:</strong> <span fg={COLORS.flag}>{state.minesRemaining.toString().padStart(2, " ")}</span>
+      </text>
+      <text>
+        <strong>Time:</strong> <span fg={COLORS.time}>{formatTime(state.timeElapsed)}</span>
+      </text>
+      <text>
+        <strong fg={COLORS.difficulty}>{diff.name}</strong>
+      </text>
+      <text fg={COLORS.hint}>
+        Best: {formatTime(state.bestTimes[state.difficultyIndex])}
+      </text>
+    </box>
+  );
+
+  // Render game board
+  const renderBoard = () => (
+    <box style={{ flexDirection: "column" }}>
+      {/* Top border */}
+      <text fg={COLORS.border}>{"┌" + "──".repeat(diff.width) + "┐"}</text>
+
+      {/* Board rows */}
+      {state.board.map((row, y) => (
+        <box key={y} style={{ flexDirection: "row" }}>
+          <text fg={COLORS.border}>│</text>
+          {row.map((cell, x) => {
+            const isCursor = x === state.cursor.x && y === state.cursor.y;
+            const display = getCellDisplay(cell, isCursor);
+            return (
+              <text
+                key={x}
+                fg={display.color}
+                bg={display.bgColor}
+              >
+                {display.char.length === 1 ? display.char + " " : display.char}
+              </text>
+            );
+          })}
+          <text fg={COLORS.border}>│</text>
+        </box>
+      ))}
+
+      {/* Bottom border */}
+      <text fg={COLORS.border}>{"└" + "──".repeat(diff.width) + "┘"}</text>
+    </box>
+  );
+
+  // Render difficulty selector
+  const renderDifficultySelector = () => (
+    <box
+      style={{
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        flexGrow: 1,
+        padding: 2,
+      }}
+    >
+      <text>
+        <strong fg={COLORS.difficulty}>Select Difficulty</strong>
+      </text>
+      <text> </text>
+      {DIFFICULTIES.map((d, i) => (
+        <box key={i}>
+          <text
+            fg={i === selectedDifficulty ? COLORS.selected : undefined}
+          >
+            {i === selectedDifficulty ? "▶ " : "  "}
+            <span>{d.name.padEnd(8)} {d.width}x{d.height} ({d.mines} mines)</span>
+            <span fg={COLORS.hint}> Best: {formatTime(state.bestTimes[i])}</span>
+          </text>
+        </box>
+      ))}
+      <text> </text>
+      <text fg={COLORS.hint}>↑↓ to select, Enter to start</text>
+    </box>
+  );
+
+  // Render paused overlay
+  const renderPaused = () => (
+    <box
+      style={{
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        flexGrow: 1,
+      }}
+    >
+      {showLoopAlert && loopAttention ? (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>CLAUDE NEEDS INPUT</strong>
+          </text>
+          <text fg={COLORS.hint}>
+            {loopAttention.reason || "Waiting for input..."}
+          </text>
+          <text fg={COLORS.hint}>Press Enter to dismiss | P to resume</text>
+        </>
+      ) : (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>PAUSED</strong>
+          </text>
+          <text fg={COLORS.hint}>Press P to resume</text>
+        </>
+      )}
+    </box>
+  );
+
+  // Render game over overlay
+  const renderGameOver = () => {
+    const won = state.status === "won";
+    const isNewBest =
+      won &&
+      state.timeElapsed > 0 &&
+      (state.bestTimes[state.difficultyIndex] === state.timeElapsed ||
+        state.bestTimes[state.difficultyIndex] === 0);
+
+    return (
+      <box style={{ flexDirection: "column", flexGrow: 1 }}>
+        {renderStats()}
+        {renderBoard()}
+        <box
+          style={{
+            flexDirection: "column",
+            alignItems: "center",
+            padding: 1,
+          }}
+        >
+          <text fg={won ? COLORS.won : COLORS.gameOver}>
+            <strong>{won ? "YOU WIN!" : "GAME OVER"}</strong>
+          </text>
+          <text>
+            Time: <span fg={COLORS.time}>{formatTime(state.timeElapsed)}</span>
+          </text>
+          {won && isNewBest && (
+            <text fg={COLORS.won}>
+              <strong>NEW BEST TIME!</strong>
+            </text>
+          )}
+          <text fg={COLORS.hint}>R to restart | D for difficulty | Q to exit</text>
+        </box>
+      </box>
+    );
+  };
+
+  // Render controls hint
+  const renderControls = () => (
+    <box style={{ paddingLeft: 1 }}>
+      <text fg={COLORS.hint}>
+        Arrow keys: Move | Space: Reveal | F: Flag | D: Difficulty | P: Pause | R: Restart | Q: Exit
+      </text>
+    </box>
+  );
 
   return (
-    <Box flexDirection="column" height="100%" overflow="hidden">
+    <box style={{ flexDirection: "column", flexGrow: 1 }}>
       {state.status === "selecting_difficulty" ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <DifficultySelector
-            selectedIndex={selectedDifficulty}
-            bestTimes={allBestTimes}
-          />
-        </Box>
-      ) : state.status === "leaderboard" ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <Leaderboard
-            title={`${diff.name} Best Times`}
-            scores={leaderboard}
-            lowerIsBetter={true}
-            formatScore={formatTime}
-            highlightPosition={state.leaderboardPosition}
-          />
-        </Box>
-      ) : state.status === "paused" && showLoopAlert && loopAttention ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <LoopAlertOverlay
-            attention={loopAttention}
-            onDismiss={onLoopAlertDismiss}
-          />
-        </Box>
+        renderDifficultySelector()
       ) : state.status === "paused" ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <Box
-            flexDirection="column"
-            alignItems="center"
-            justifyContent="center"
-            padding={1}
-          >
-            <Text bold color="yellow">
-              PAUSED
-            </Text>
-            <Text dimColor>Press P to resume</Text>
-          </Box>
-        </Box>
+        <>
+          {renderStats()}
+          {renderPaused()}
+          {renderControls()}
+        </>
       ) : state.status === "won" || state.status === "lost" ? (
-        <Box flexDirection="column" flexGrow={1}>
-          <GameStats
-            minesRemaining={state.minesRemaining}
-            timeElapsed={state.timeElapsed}
-            difficulty={diff.name}
-            bestTime={bestTime}
-          />
-          <GameBoard
-            board={state.board}
-            cursor={state.cursor}
-            status={state.status}
-          />
-          <GameOverOverlay
-            won={state.status === "won"}
-            timeElapsed={state.timeElapsed}
-            leaderboardPosition={state.leaderboardPosition}
-          />
-        </Box>
+        renderGameOver()
       ) : (
-        <Box flexDirection="column" flexGrow={1}>
-          <GameStats
-            minesRemaining={state.minesRemaining}
-            timeElapsed={state.timeElapsed}
-            difficulty={diff.name}
-            bestTime={bestTime}
-          />
-          <GameBoard
-            board={state.board}
-            cursor={state.cursor}
-            status={state.status}
-          />
-        </Box>
+        <>
+          {renderStats()}
+          {renderBoard()}
+          {renderControls()}
+        </>
       )}
-    </Box>
+    </box>
   );
 }
 

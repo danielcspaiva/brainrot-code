@@ -5,15 +5,17 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "brainrot": "dist/index.js"
+    "brainrot": "./bin/brainrot.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "start": "node dist/index.js",
+    "build": "bun build src/index.tsx --outdir dist --target bun",
+    "build:old": "tsc",
+    "dev": "bun --watch src/index.tsx",
+    "start": "bun dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
@@ -38,9 +40,12 @@
   },
   "dependencies": {
     "@opentui/core": "^0.1.72",
+    "@opentui/core-darwin-arm64": "^0.1.73",
     "@opentui/react": "^0.1.72",
     "ink": "^6.6.0",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-devtools-core": "^7.0.1",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

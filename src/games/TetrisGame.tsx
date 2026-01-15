@@ -1,19 +1,16 @@
 /**
- * Tetris Game
+ * Tetris Game - OpenTUI Version
  *
- * Classic Tetris game implemented with the game framework.
+ * Classic Tetris game implemented with OpenTUI components.
  * Features: 7 standard pieces, rotation, line clearing, scoring, next piece preview.
  */
 
-import { Box, Text, useInput } from "ink";
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useKeyboard } from "@opentui/react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { GameComponentProps, GameInfo, Point } from "../game-types.js";
-import { useGameLoop } from "../use-game-loop.js";
-import { useHighScores } from "../use-high-scores.js";
-import { useGameSession } from "../use-stats.js";
-import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
-import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
-import { useThemeColors, useGameColors } from "../useTheme.js";
+import { useGameLoop } from "../hooks/useGameLoop.js";
+import { useHighScores } from "../data/useHighScores.js";
+import { useGameSession } from "../data/useStats.js";
 
 /** Tetris game metadata */
 export const tetrisGameInfo: GameInfo = {
@@ -49,22 +46,44 @@ interface TetrisState {
   score: number;
   level: number;
   lines: number;
-  status: "playing" | "paused" | "game_over" | "leaderboard";
+  status: "playing" | "paused" | "game_over";
   clearingLines: number[];
   clearAnimFrame: number;
-  /** Position on leaderboard after game over (0 if not on leaderboard) */
-  leaderboardPosition: number;
+  highScore: number;
 }
 
 /** Board dimensions */
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
 
+/** Piece colors */
+const PIECE_COLORS: Record<TetrominoType, string> = {
+  I: "#00FFFF", // Cyan
+  O: "#FFFF00", // Yellow
+  T: "#FF00FF", // Magenta
+  S: "#00FF00", // Green
+  Z: "#FF0000", // Red
+  J: "#0000FF", // Blue
+  L: "#FFA500", // Orange
+};
+
+/** UI Colors */
+const COLORS = {
+  border: "#888888",
+  score: "#FFFF00",
+  level: "#00FFFF",
+  lines: "#00FF00",
+  highScore: "#888888",
+  fps: "#666666",
+  gameOver: "#FF0000",
+  paused: "#FFFF00",
+  hint: "#666666",
+  ghost: "#444444",
+  flashOn: "#FFFFFF",
+};
+
 /** Piece definitions with their rotations */
-const PIECE_DEFINITIONS: Record<
-  TetrominoType,
-  { blocks: Point[] }
-> = {
+const PIECE_DEFINITIONS: Record<TetrominoType, { blocks: Point[] }> = {
   I: {
     blocks: [
       { x: 0, y: 1 },
@@ -122,22 +141,6 @@ const PIECE_DEFINITIONS: Record<
     ],
   },
 };
-
-/** Hook to get theme-aware piece colors */
-function usePieceColors(): Record<TetrominoType, string> {
-  const colors = useThemeColors();
-  const gameColors = useGameColors();
-
-  return useMemo(() => ({
-    I: colors.primary,      // Cyan in default theme
-    O: colors.accent,       // Yellow in default theme
-    T: colors.secondary,    // Magenta in default theme
-    S: colors.success,      // Green in default theme
-    Z: colors.error,        // Red in default theme
-    J: colors.info,         // Cyan/Blue in default theme
-    L: gameColors.item,     // Yellow/Orange in default theme
-  }), [colors, gameColors]);
-}
 
 const PIECE_TYPES: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
 
@@ -292,7 +295,7 @@ function getDropSpeed(level: number): number {
 }
 
 /** Create initial game state */
-function createInitialState(): TetrisState {
+function createInitialState(highScore: number = 0): TetrisState {
   const firstPiece = randomPieceType();
   const nextPiece = randomPieceType();
 
@@ -307,234 +310,12 @@ function createInitialState(): TetrisState {
     status: "playing",
     clearingLines: [],
     clearAnimFrame: 0,
-    leaderboardPosition: 0,
+    highScore,
   };
 }
 
-/** Next piece preview component */
-function NextPiecePreview({ pieceType }: { pieceType: TetrominoType }) {
-  const pieceColors = usePieceColors();
-  const piece = createPiece(pieceType);
-  const grid: string[][] = Array(4)
-    .fill(null)
-    .map(() => Array(4).fill(" "));
-
-  // Center the piece in the preview
-  const offsetX = piece.type === "I" ? 0 : 1;
-  const offsetY = piece.type === "I" ? 1 : 1;
-
-  for (const block of piece.blocks) {
-    const y = block.y + offsetY;
-    const x = block.x + offsetX;
-    if (y >= 0 && y < 4 && x >= 0 && x < 4) {
-      grid[y][x] = "█";
-    }
-  }
-
-  return (
-    <Box flexDirection="column" borderStyle="single" paddingX={1}>
-      <Text bold>Next:</Text>
-      {grid.map((row, y) => (
-        <Box key={y}>
-          {row.map((cell, x) => (
-            <Text key={x} color={cell === "█" ? pieceColors[pieceType] : undefined}>
-              {cell}
-            </Text>
-          ))}
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-/** Game board component */
-function GameBoard({
-  board,
-  currentPiece,
-  piecePosition,
-  clearingLines,
-  clearAnimFrame,
-}: {
-  board: Cell[][];
-  currentPiece: Tetromino | null;
-  piecePosition: Point;
-  clearingLines: number[];
-  clearAnimFrame: number;
-}) {
-  const colors = useThemeColors();
-  const pieceColors = usePieceColors();
-
-  // Create display board
-  const display: { char: string; pieceType?: TetrominoType }[][] = board.map((row, _y) =>
-    row.map((cell) => {
-      if (cell.filled) {
-        return { char: "█", pieceType: cell.pieceType };
-      }
-      return { char: " " };
-    })
-  );
-
-  // Add current piece
-  if (currentPiece) {
-    for (const block of currentPiece.blocks) {
-      const x = piecePosition.x + block.x;
-      const y = piecePosition.y + block.y;
-      if (y >= 0 && y < BOARD_HEIGHT && x >= 0 && x < BOARD_WIDTH) {
-        display[y][x] = { char: "█", pieceType: currentPiece.type };
-      }
-    }
-
-    // Add ghost piece (drop preview)
-    let ghostY = piecePosition.y;
-    while (
-      isValidPosition(board, currentPiece, {
-        x: piecePosition.x,
-        y: ghostY + 1,
-      })
-    ) {
-      ghostY++;
-    }
-    if (ghostY !== piecePosition.y) {
-      for (const block of currentPiece.blocks) {
-        const x = piecePosition.x + block.x;
-        const y = ghostY + block.y;
-        if (
-          y >= 0 &&
-          y < BOARD_HEIGHT &&
-          x >= 0 &&
-          x < BOARD_WIDTH &&
-          !display[y][x].pieceType
-        ) {
-          // Ghost piece uses neutral/muted color
-          display[y][x] = { char: "░" };
-        }
-      }
-    }
-  }
-
-  // Apply line clearing animation
-  const isClearing = clearingLines.length > 0;
-  const flashOn = clearAnimFrame % 2 === 0;
-
-  return (
-    <Box flexDirection="column">
-      {/* Top border */}
-      <Text color={colors.border}>{"┌" + "──".repeat(BOARD_WIDTH) + "┐"}</Text>
-
-      {/* Board rows */}
-      {display.map((row, y) => (
-        <Box key={y}>
-          <Text color={colors.border}>│</Text>
-          {row.map((cell, x) => {
-            // Line clearing animation
-            if (isClearing && clearingLines.includes(y)) {
-              return (
-                <Text key={x} color={flashOn ? colors.text : undefined}>
-                  {flashOn ? "██" : "  "}
-                </Text>
-              );
-            }
-
-            // Get color based on piece type
-            const cellColor = cell.pieceType
-              ? pieceColors[cell.pieceType]
-              : cell.char === "░"
-                ? colors.textMuted
-                : undefined;
-
-            return (
-              <Text key={x} color={cellColor}>
-                {cell.char}
-                {cell.char}
-              </Text>
-            );
-          })}
-          <Text color={colors.border}>│</Text>
-        </Box>
-      ))}
-
-      {/* Bottom border */}
-      <Text color={colors.border}>{"└" + "──".repeat(BOARD_WIDTH) + "┘"}</Text>
-    </Box>
-  );
-}
-
-/** Game over overlay */
-function GameOverOverlay({
-  score,
-  leaderboardPosition,
-}: {
-  score: number;
-  leaderboardPosition: number;
-}) {
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={1}
-    >
-      <Text bold color="red">
-        GAME OVER
-      </Text>
-      <Text>
-        Score: <Text color="yellow">{score}</Text>
-      </Text>
-      {leaderboardPosition > 0 && (
-        <NewHighScoreBanner position={leaderboardPosition} score={score} />
-      )}
-      <Text dimColor>Press R to restart | H for leaderboard</Text>
-    </Box>
-  );
-}
-
-/** Paused overlay */
-function PausedOverlay() {
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={1}
-    >
-      <Text bold color="yellow">
-        PAUSED
-      </Text>
-      <Text dimColor>Press P to resume</Text>
-    </Box>
-  );
-}
-
-/** Compact horizontal stats bar */
-function GameStats({
-  score,
-  highScore,
-  level,
-  lines,
-}: {
-  score: number;
-  highScore: number;
-  level: number;
-  lines: number;
-}) {
-  return (
-    <Box paddingX={1} gap={2}>
-      <Text>
-        <Text bold>Score:</Text> <Text color="yellow">{score}</Text>
-      </Text>
-      <Text>
-        <Text bold>Level:</Text> <Text color="cyan">{level}</Text>
-      </Text>
-      <Text>
-        <Text bold>Lines:</Text> <Text color="green">{lines}</Text>
-      </Text>
-      <Text dimColor>High: {highScore}</Text>
-    </Box>
-  );
-}
-
 /**
- * Tetris game component
+ * Tetris game component for OpenTUI
  */
 export function TetrisGame({
   hasFocus,
@@ -544,31 +325,46 @@ export function TetrisGame({
   onGameStateChange,
   autoPauseEnabled = true,
 }: GameComponentProps) {
-  const [state, setState] = useState<TetrisState>(() => createInitialState());
+  const { highScore, submit } = useHighScores("tetris");
+  const session = useGameSession("tetris");
+
+  const [state, setState] = useState<TetrisState>(() =>
+    createInitialState(highScore)
+  );
   const lastDropTime = useRef(0);
   const clearAnimTimer = useRef(0);
-  const scoreSubmittedRef = useRef(false);
-  const statsSubmittedRef = useRef(false);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
-  // High score persistence
-  const { highScore, leaderboard, submitScore } = useHighScores("tetris");
-
-  // Stats tracking
-  const { startSession, endSession, isSessionActive } =
-    useGameSession("tetris");
-
   // Report game state changes to status bar
   useEffect(() => {
-    const mappedStatus =
-      state.status === "leaderboard" ? "game_over" : state.status;
     onGameStateChange?.({
       score: state.score,
-      status: mappedStatus,
-      highScore,
+      status: state.status,
+      highScore: state.highScore,
     });
-  }, [state.score, state.status, highScore, onGameStateChange]);
+  }, [state.score, state.status, state.highScore, onGameStateChange]);
+
+  useEffect(() => {
+    if (highScore > state.highScore) {
+      setState((prev) => ({ ...prev, highScore }));
+    }
+  }, [highScore, state.highScore]);
+
+  useEffect(() => {
+    if (state.status === "playing" && !session.isActive) {
+      session.startSession();
+    }
+  }, [session, state.status]);
+
+  useEffect(() => {
+    if (state.status === "game_over") {
+      if (state.score > 0) {
+        void submit(state.score);
+      }
+      void session.endSession({ score: state.score, won: false });
+    }
+  }, [session, state.score, state.status, submit]);
 
   // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
@@ -578,7 +374,6 @@ export function TetrisGame({
       setState((prev) => ({ ...prev, status: "paused" }));
     } else if (!loopAttention?.needsAttention && showLoopAlert) {
       setShowLoopAlert(false);
-      // Auto-resume if we were playing before the alert
       if (wasPlayingBeforeAlert) {
         setState((prev) => {
           if (prev.status === "paused") {
@@ -595,44 +390,6 @@ export function TetrisGame({
     state.status,
     showLoopAlert,
     wasPlayingBeforeAlert,
-  ]);
-
-  // Start session when game starts
-  useEffect(() => {
-    if (state.status === "playing" && !isSessionActive) {
-      startSession();
-    }
-  }, [state.status, isSessionActive, startSession]);
-
-  // Submit score when game ends
-  useEffect(() => {
-    if (
-      state.status === "game_over" &&
-      !scoreSubmittedRef.current &&
-      state.score > 0
-    ) {
-      scoreSubmittedRef.current = true;
-      submitScore(state.score, { level: state.level, lines: state.lines }).then(
-        (position) => {
-          if (position > 0) {
-            setState((prev) => ({ ...prev, leaderboardPosition: position }));
-          }
-        }
-      );
-    }
-
-    // Record stats when game ends
-    if (state.status === "game_over" && !statsSubmittedRef.current) {
-      statsSubmittedRef.current = true;
-      void endSession(state.score, undefined, { linesCleared: state.lines });
-    }
-  }, [
-    state.status,
-    state.score,
-    state.level,
-    state.lines,
-    submitScore,
-    endSession,
   ]);
 
   // Lock piece and check for lines
@@ -663,10 +420,12 @@ export function TetrisGame({
       const startPosition = { x: Math.floor((BOARD_WIDTH - 4) / 2), y: 0 };
 
       if (!isValidPosition(newBoard, newPiece, startPosition)) {
+        const newHighScore = Math.max(prev.score, prev.highScore);
         return {
           ...prev,
           board: newBoard,
           status: "game_over",
+          highScore: newHighScore,
         };
       }
 
@@ -785,11 +544,13 @@ export function TetrisGame({
       const startPosition = { x: Math.floor((BOARD_WIDTH - 4) / 2), y: 0 };
 
       if (!isValidPosition(newBoard, newPiece, startPosition)) {
+        const newHighScore = Math.max(newScore, prev.highScore);
         return {
           ...prev,
           board: newBoard,
           score: newScore,
           status: "game_over",
+          highScore: newHighScore,
         };
       }
 
@@ -805,7 +566,7 @@ export function TetrisGame({
   }, []);
 
   // Game loop
-  useGameLoop({
+  const { loopInfo } = useGameLoop({
     targetFps: 30,
     isActive: hasFocus && state.status === "playing",
     onTick: (info) => {
@@ -833,6 +594,7 @@ export function TetrisGame({
               };
 
               if (!isValidPosition(clearedBoard, newPiece, startPosition)) {
+                const newHighScore = Math.max(prev.score + lineScore, prev.highScore);
                 return {
                   ...prev,
                   board: clearedBoard,
@@ -842,6 +604,7 @@ export function TetrisGame({
                   clearingLines: [],
                   clearAnimFrame: 0,
                   status: "game_over",
+                  highScore: newHighScore,
                 };
               }
 
@@ -873,125 +636,272 @@ export function TetrisGame({
     },
   });
 
-  // Handle input
-  useInput(
-    (input, key) => {
-      if (!hasFocus) return;
+  // Handle keyboard input
+  useKeyboard(
+    useCallback(
+      (key) => {
+        if (!hasFocus) return;
 
-      // Exit
-      if (input === "q" || input === "Q" || key.escape) {
-        onExit();
-        return;
-      }
+        const keyName = key.name.toLowerCase();
 
-      // Restart
-      if (input === "r" || input === "R") {
-        scoreSubmittedRef.current = false;
-        statsSubmittedRef.current = false;
-        setState(createInitialState());
-        lastDropTime.current = 0;
-        clearAnimTimer.current = 0;
-        return;
-      }
-
-      // Show leaderboard (when game over or paused)
-      if ((input === "h" || input === "H") && state.status !== "playing") {
-        setState((prev) => ({
-          ...prev,
-          status: prev.status === "leaderboard" ? "game_over" : "leaderboard",
-        }));
-        return;
-      }
-
-      // Dismiss loop alert with Enter key
-      if (key.return && showLoopAlert) {
-        setShowLoopAlert(false);
-        onLoopAlertDismiss?.();
-        return;
-      }
-
-      // Pause
-      if (input === "p" || input === "P") {
-        // If we're showing loop alert, dismiss it and resume
-        if (showLoopAlert) {
-          setShowLoopAlert(false);
-          setWasPlayingBeforeAlert(false);
+        // Exit
+        if (keyName === "q" || keyName === "escape") {
+          onExit();
+          return;
         }
-        setState((prev) => ({
-          ...prev,
-          status: prev.status === "playing" ? "paused" : "playing",
-        }));
-        return;
+
+        // Restart
+        if (keyName === "r") {
+          setState((prev) => createInitialState(prev.highScore));
+          lastDropTime.current = 0;
+          clearAnimTimer.current = 0;
+          return;
+        }
+
+        // Dismiss loop alert with Enter key
+        if (keyName === "return" && showLoopAlert) {
+          setShowLoopAlert(false);
+          onLoopAlertDismiss?.();
+          return;
+        }
+
+        // Pause
+        if (keyName === "p") {
+          // If we're showing loop alert, dismiss it and resume
+          if (showLoopAlert) {
+            setShowLoopAlert(false);
+            setWasPlayingBeforeAlert(false);
+          }
+          setState((prev) => ({
+            ...prev,
+            status: prev.status === "playing" ? "paused" : "playing",
+          }));
+          return;
+        }
+
+        if (state.status !== "playing" || state.clearingLines.length > 0) return;
+
+        // Movement
+        if (keyName === "left" || keyName === "arrowleft" || keyName === "a") {
+          movePiece(-1, 0);
+        } else if (keyName === "right" || keyName === "arrowright" || keyName === "d") {
+          movePiece(1, 0);
+        } else if (keyName === "down" || keyName === "arrowdown" || keyName === "s") {
+          movePiece(0, 1);
+          setState((prev) => ({ ...prev, score: prev.score + 1 })); // Soft drop bonus
+        } else if (keyName === "up" || keyName === "arrowup" || keyName === "w") {
+          rotate();
+        } else if (keyName === "space" || keyName === " ") {
+          hardDrop();
+        }
+      },
+      [hasFocus, state.status, state.clearingLines, showLoopAlert, movePiece, rotate, hardDrop, onExit, onLoopAlertDismiss]
+    )
+  );
+
+  // Build display board
+  const buildDisplayBoard = (): { char: string; color: string }[][] => {
+    const display: { char: string; color: string }[][] = state.board.map((row, y) =>
+      row.map((cell) => {
+        if (cell.filled && cell.pieceType) {
+          return { char: "██", color: PIECE_COLORS[cell.pieceType] };
+        }
+        return { char: "  ", color: "" };
+      })
+    );
+
+    // Add current piece
+    if (state.currentPiece) {
+      for (const block of state.currentPiece.blocks) {
+        const x = state.piecePosition.x + block.x;
+        const y = state.piecePosition.y + block.y;
+        if (y >= 0 && y < BOARD_HEIGHT && x >= 0 && x < BOARD_WIDTH) {
+          display[y][x] = { char: "██", color: PIECE_COLORS[state.currentPiece.type] };
+        }
       }
 
-      if (state.status !== "playing" || state.clearingLines.length > 0) return;
-
-      // Movement
-      if (key.leftArrow || input === "a" || input === "A") {
-        movePiece(-1, 0);
-      } else if (key.rightArrow || input === "d" || input === "D") {
-        movePiece(1, 0);
-      } else if (key.downArrow || input === "s" || input === "S") {
-        movePiece(0, 1);
-        setState((prev) => ({ ...prev, score: prev.score + 1 })); // Soft drop bonus
-      } else if (key.upArrow || input === "w" || input === "W") {
-        rotate();
-      } else if (input === " ") {
-        hardDrop();
+      // Add ghost piece (drop preview)
+      let ghostY = state.piecePosition.y;
+      while (
+        isValidPosition(state.board, state.currentPiece, {
+          x: state.piecePosition.x,
+          y: ghostY + 1,
+        })
+      ) {
+        ghostY++;
       }
-    },
-    { isActive: hasFocus }
+      if (ghostY !== state.piecePosition.y) {
+        for (const block of state.currentPiece.blocks) {
+          const x = state.piecePosition.x + block.x;
+          const y = ghostY + block.y;
+          if (
+            y >= 0 &&
+            y < BOARD_HEIGHT &&
+            x >= 0 &&
+            x < BOARD_WIDTH &&
+            display[y][x].char === "  "
+          ) {
+            display[y][x] = { char: "░░", color: COLORS.ghost };
+          }
+        }
+      }
+    }
+
+    return display;
+  };
+
+  // Render next piece preview
+  const renderNextPiecePreview = () => {
+    const piece = createPiece(state.nextPiece);
+    const grid: { char: string; color: string }[][] = Array(4)
+      .fill(null)
+      .map(() => Array(4).fill(null).map(() => ({ char: " ", color: "" })));
+
+    const offsetX = piece.type === "I" ? 0 : 1;
+    const offsetY = piece.type === "I" ? 1 : 1;
+
+    for (const block of piece.blocks) {
+      const y = block.y + offsetY;
+      const x = block.x + offsetX;
+      if (y >= 0 && y < 4 && x >= 0 && x < 4) {
+        grid[y][x] = { char: "█", color: PIECE_COLORS[state.nextPiece] };
+      }
+    }
+
+    return (
+      <box style={{ flexDirection: "column", borderStyle: "single", paddingLeft: 1, paddingRight: 1 }}>
+        <text><strong>Next:</strong></text>
+        {grid.map((row, y) => (
+          <box key={y} style={{ flexDirection: "row" }}>
+            {row.map((cell, x) => (
+              <text key={x} fg={cell.color || undefined}>{cell.char}</text>
+            ))}
+          </box>
+        ))}
+      </box>
+    );
+  };
+
+  // Render HUD
+  const renderHUD = () => (
+    <box style={{ flexDirection: "row", gap: 2, paddingLeft: 1, paddingRight: 1 }}>
+      <text>
+        <strong>Score:</strong> <span fg={COLORS.score}>{state.score}</span>
+      </text>
+      <text>
+        <strong>Level:</strong> <span fg={COLORS.level}>{state.level}</span>
+      </text>
+      <text>
+        <strong>Lines:</strong> <span fg={COLORS.lines}>{state.lines}</span>
+      </text>
+      <text fg={COLORS.highScore}>High: {state.highScore}</text>
+      <text fg={COLORS.fps}>{loopInfo.fps} FPS</text>
+    </box>
+  );
+
+  // Render game over overlay
+  const renderGameOver = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      <text fg={COLORS.gameOver}>
+        <strong>GAME OVER</strong>
+      </text>
+      <text>
+        Score: <span fg={COLORS.score}>{state.score}</span>
+      </text>
+      <text>
+        Level: <span fg={COLORS.level}>{state.level}</span> | Lines: <span fg={COLORS.lines}>{state.lines}</span>
+      </text>
+      {state.score >= state.highScore && state.score > 0 && (
+        <text fg={COLORS.score}>NEW HIGH SCORE!</text>
+      )}
+      <text fg={COLORS.hint}>Press R to restart | Q to exit</text>
+    </box>
+  );
+
+  // Render paused overlay
+  const renderPaused = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      {showLoopAlert && loopAttention ? (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>CLAUDE NEEDS INPUT</strong>
+          </text>
+          <text fg={COLORS.hint}>{loopAttention.reason || "Waiting for input..."}</text>
+          <text fg={COLORS.hint}>Press Enter to dismiss | P to resume</text>
+        </>
+      ) : (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>PAUSED</strong>
+          </text>
+          <text fg={COLORS.hint}>Press P to resume</text>
+        </>
+      )}
+    </box>
+  );
+
+  // Render game board
+  const renderBoard = () => {
+    const display = buildDisplayBoard();
+    const isClearing = state.clearingLines.length > 0;
+    const flashOn = state.clearAnimFrame % 2 === 0;
+
+    return (
+      <box style={{ flexDirection: "row", flexGrow: 1 }}>
+        <box style={{ flexDirection: "column" }}>
+          {/* Top border */}
+          <text fg={COLORS.border}>{"┌" + "──".repeat(BOARD_WIDTH) + "┐"}</text>
+
+          {/* Board rows */}
+          {display.map((row, y) => (
+            <box key={y} style={{ flexDirection: "row" }}>
+              <text fg={COLORS.border}>│</text>
+              {row.map((cell, x) => {
+                // Line clearing animation
+                if (isClearing && state.clearingLines.includes(y)) {
+                  return (
+                    <text key={x} fg={flashOn ? COLORS.flashOn : undefined}>
+                      {flashOn ? "██" : "  "}
+                    </text>
+                  );
+                }
+                return (
+                  <text key={x} fg={cell.color || undefined}>
+                    {cell.char}
+                  </text>
+                );
+              })}
+              <text fg={COLORS.border}>│</text>
+            </box>
+          ))}
+
+          {/* Bottom border */}
+          <text fg={COLORS.border}>{"└" + "──".repeat(BOARD_WIDTH) + "┘"}</text>
+        </box>
+
+        {/* Next piece preview */}
+        {renderNextPiecePreview()}
+      </box>
+    );
+  };
+
+  // Render controls hint
+  const renderControls = () => (
+    <box style={{ paddingLeft: 1 }}>
+      <text fg={COLORS.hint}>Arrow/WASD: Move | Up/W: Rotate | Space: Drop | P: Pause | R: Restart | Q: Exit</text>
+    </box>
   );
 
   return (
-    <Box flexDirection="column" height="100%" overflow="hidden">
-      {state.status === "leaderboard" ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <Leaderboard
-            title="Tetris High Scores"
-            scores={leaderboard}
-            highlightPosition={state.leaderboardPosition}
-          />
-        </Box>
-      ) : state.status === "game_over" ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <GameOverOverlay
-            score={state.score}
-            leaderboardPosition={state.leaderboardPosition}
-          />
-        </Box>
-      ) : state.status === "paused" && showLoopAlert && loopAttention ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <LoopAlertOverlay
-            attention={loopAttention}
-            onDismiss={onLoopAlertDismiss}
-          />
-        </Box>
-      ) : state.status === "paused" ? (
-        <Box flexGrow={1} justifyContent="center" alignItems="center">
-          <PausedOverlay />
-        </Box>
-      ) : (
-        <Box flexDirection="column" flexGrow={1}>
-          <GameStats
-            score={state.score}
-            highScore={highScore}
-            level={state.level}
-            lines={state.lines}
-          />
-          <Box flexGrow={1}>
-            <GameBoard
-              board={state.board}
-              currentPiece={state.currentPiece}
-              piecePosition={state.piecePosition}
-              clearingLines={state.clearingLines}
-              clearAnimFrame={state.clearAnimFrame}
-            />
-            <NextPiecePreview pieceType={state.nextPiece} />
-          </Box>
-        </Box>
-      )}
-    </Box>
+    <box style={{ flexDirection: "column", flexGrow: 1 }}>
+      {renderHUD()}
+      {state.status === "game_over"
+        ? renderGameOver()
+        : state.status === "paused"
+        ? renderPaused()
+        : renderBoard()}
+      {renderControls()}
+    </box>
   );
 }
 

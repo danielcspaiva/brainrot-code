@@ -1,26 +1,17 @@
 /**
- * Snake Game
+ * Snake Game - OpenTUI Version
  *
- * Classic snake game implemented with the game framework.
- * Demonstrates game loop, input handling, and rendering patterns.
+ * Classic snake game implemented with OpenTUI components.
+ * Uses box and text components for rendering, useKeyboard for input.
  */
 
-import { Box, Text, useInput } from "ink";
+import { useKeyboard } from "@opentui/react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { GameComponentProps, GameInfo } from "../game-types.js";
-import {
-  type Direction,
-  type Point,
-  directionToVector,
-  pointsEqual,
-  addVectors,
-} from "../game-types.js";
-import { useGameLoop } from "../use-game-loop.js";
-import { useHighScores } from "../use-high-scores.js";
-import { useGameSession } from "../use-stats.js";
-import { Leaderboard, NewHighScoreBanner } from "../Leaderboard.js";
-import { LoopAlertOverlay } from "../LoopAlertOverlay.js";
-import { useThemeColors, useGameColors } from "../useTheme.js";
+import type { GameComponentProps, GameInfo, Point, Direction } from "../game-types.js";
+import { directionToVector, pointsEqual, addVectors } from "../game-types.js";
+import { useGameLoop } from "../hooks/useGameLoop.js";
+import { useHighScores } from "../data/useHighScores.js";
+import { useGameSession } from "../data/useStats.js";
 
 /** Snake game metadata */
 export const snakeGameInfo: GameInfo = {
@@ -39,13 +30,12 @@ interface SnakeState {
   nextDirection: Direction;
   food: Point;
   score: number;
-  status: "playing" | "paused" | "game_over" | "leaderboard";
+  status: "playing" | "paused" | "game_over";
   speed: number;
-  /** Position on leaderboard after game over (0 if not on leaderboard) */
-  leaderboardPosition: number;
+  highScore: number;
 }
 
-function createInitialState(width: number, height: number): SnakeState {
+function createInitialState(width: number, height: number, highScore: number = 0): SnakeState {
   const centerX = Math.floor(width / 2);
   const centerY = Math.floor(height / 2);
 
@@ -61,7 +51,7 @@ function createInitialState(width: number, height: number): SnakeState {
     score: 0,
     status: "playing",
     speed: 150, // ms per move
-    leaderboardPosition: 0,
+    highScore,
   };
 }
 
@@ -84,168 +74,22 @@ function spawnFood(width: number, height: number, snake: Point[]): Point {
   return food;
 }
 
-interface GameBoardProps {
-  snake: Point[];
-  food: Point;
-  width: number;
-  height: number;
-}
-
-function GameBoard({ snake, food, width, height }: GameBoardProps) {
-  const colors = useThemeColors();
-  const gameColors = useGameColors();
-
-  // Build the board as a 2D array
-  const board: string[][] = [];
-
-  for (let y = 0; y < height; y++) {
-    const row: string[] = [];
-    for (let x = 0; x < width; x++) {
-      // Border
-      if (y === 0 || y === height - 1) {
-        row.push("─");
-      } else if (x === 0 || x === width - 1) {
-        row.push("│");
-      } else {
-        row.push(" ");
-      }
-    }
-    board.push(row);
-  }
-
-  // Corners
-  if (height > 0 && width > 0) {
-    board[0][0] = "┌";
-    board[0][width - 1] = "┐";
-    board[height - 1][0] = "└";
-    board[height - 1][width - 1] = "┘";
-  }
-
-  // Place food
-  if (food.y > 0 && food.y < height - 1 && food.x > 0 && food.x < width - 1) {
-    board[food.y][food.x] = "●";
-  }
-
-  // Place snake
-  snake.forEach((segment, index) => {
-    if (
-      segment.y > 0 &&
-      segment.y < height - 1 &&
-      segment.x > 0 &&
-      segment.x < width - 1
-    ) {
-      board[segment.y][segment.x] = index === 0 ? "█" : "▓";
-    }
-  });
-
-  return (
-    <Box flexDirection="column">
-      {board.map((row, y) => (
-        <Box key={y}>
-          {row.map((cell, x) => {
-            let color: string | undefined;
-            const isSnakeHead =
-              snake[0] && snake[0].x === x && snake[0].y === y;
-            const isSnakeBody = snake
-              .slice(1)
-              .some((s) => s.x === x && s.y === y);
-            const isFood = food.x === x && food.y === y;
-
-            if (isSnakeHead) {
-              color = gameColors.player;
-            } else if (isSnakeBody) {
-              color = gameColors.bonus;
-            } else if (isFood) {
-              color = gameColors.item;
-            } else if (cell !== " ") {
-              color = colors.border;
-            }
-
-            return (
-              <Text key={x} color={color}>
-                {cell}
-              </Text>
-            );
-          })}
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-function GameOverOverlay({
-  score,
-  leaderboardPosition,
-}: {
-  score: number;
-  leaderboardPosition: number;
-}) {
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={1}
-    >
-      <Text bold color="red">
-        GAME OVER
-      </Text>
-      <Text>
-        Score: <Text color="yellow">{score}</Text>
-      </Text>
-      {leaderboardPosition > 0 && (
-        <NewHighScoreBanner position={leaderboardPosition} score={score} />
-      )}
-      <Text dimColor>Press R to restart | H for leaderboard</Text>
-    </Box>
-  );
-}
-
-function PausedOverlay() {
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={1}
-    >
-      <Text bold color="yellow">
-        PAUSED
-      </Text>
-      <Text dimColor>Press P to resume</Text>
-    </Box>
-  );
-}
-
-function GameHUD({
-  score,
-  highScore,
-  fps,
-}: {
-  score: number;
-  highScore: number;
-  fps: number;
-}) {
-  return (
-    <Box justifyContent="space-between" paddingX={1}>
-      <Box>
-        <Text>Score: </Text>
-        <Text color="yellow" bold>
-          {score}
-        </Text>
-      </Box>
-      <Box>
-        <Text dimColor>High: {highScore}</Text>
-      </Box>
-      <Box>
-        <Text dimColor>{fps} FPS</Text>
-      </Box>
-    </Box>
-  );
-}
+/** Colors for game elements */
+const COLORS = {
+  border: "#888888",
+  snakeHead: "#00FF00",
+  snakeBody: "#00AA00",
+  food: "#FF0000",
+  score: "#FFFF00",
+  highScore: "#888888",
+  fps: "#666666",
+  gameOver: "#FF0000",
+  paused: "#FFFF00",
+  hint: "#666666",
+};
 
 /**
- * Snake game component
+ * Snake game component for OpenTUI
  */
 export function SnakeGame({
   hasFocus,
@@ -256,36 +100,50 @@ export function SnakeGame({
   onGameStateChange,
   autoPauseEnabled = true,
 }: GameComponentProps) {
-  // Calculate game board size (leaving room for HUD and controls)
+  // Calculate game board size (leaving room for HUD)
   const boardWidth = Math.max(dimensions.width - 2, 15);
   const boardHeight = Math.max(dimensions.height - 5, 8);
 
+  const { highScore, submit } = useHighScores("snake");
+  const session = useGameSession("snake");
+
   const [state, setState] = useState<SnakeState>(() =>
-    createInitialState(boardWidth, boardHeight)
+    createInitialState(boardWidth, boardHeight, highScore)
   );
 
   const [lastMoveTime, setLastMoveTime] = useState(0);
-  const scoreSubmittedRef = useRef(false);
-  const statsSubmittedRef = useRef(false);
   const [showLoopAlert, setShowLoopAlert] = useState(false);
   const [wasPlayingBeforeAlert, setWasPlayingBeforeAlert] = useState(false);
 
-  // High score persistence
-  const { highScore, leaderboard, submitScore } = useHighScores("snake");
-
   // Report game state changes to status bar
   useEffect(() => {
-    const mappedStatus =
-      state.status === "leaderboard" ? "game_over" : state.status;
     onGameStateChange?.({
       score: state.score,
-      status: mappedStatus,
-      highScore,
+      status: state.status,
+      highScore: state.highScore,
     });
-  }, [state.score, state.status, highScore, onGameStateChange]);
+  }, [state.score, state.status, state.highScore, onGameStateChange]);
 
-  // Stats tracking
-  const { startSession, endSession, isSessionActive } = useGameSession("snake");
+  useEffect(() => {
+    if (highScore > state.highScore) {
+      setState((prev) => ({ ...prev, highScore }));
+    }
+  }, [highScore, state.highScore]);
+
+  useEffect(() => {
+    if (state.status === "playing" && !session.isActive) {
+      session.startSession();
+    }
+  }, [session, state.status]);
+
+  useEffect(() => {
+    if (state.status === "game_over") {
+      if (state.score > 0) {
+        void submit(state.score);
+      }
+      void session.endSession({ score: state.score, won: false });
+    }
+  }, [session, state.score, state.status, submit]);
 
   // Auto-pause when loop needs attention (if enabled)
   useEffect(() => {
@@ -295,7 +153,6 @@ export function SnakeGame({
       setState((prev) => ({ ...prev, status: "paused" }));
     } else if (!loopAttention?.needsAttention && showLoopAlert) {
       setShowLoopAlert(false);
-      // Auto-resume if we were playing before the alert
       if (wasPlayingBeforeAlert) {
         setState((prev) => {
           if (prev.status === "paused") {
@@ -316,40 +173,10 @@ export function SnakeGame({
 
   // Reset game when dimensions change significantly
   useEffect(() => {
-    setState((prev) => ({
-      ...createInitialState(boardWidth, boardHeight),
-      leaderboardPosition: prev.leaderboardPosition,
-    }));
+    setState((prev) =>
+      createInitialState(boardWidth, boardHeight, prev.highScore)
+    );
   }, [boardWidth, boardHeight]);
-
-  // Start session when game starts
-  useEffect(() => {
-    if (state.status === "playing" && !isSessionActive) {
-      startSession();
-    }
-  }, [state.status, isSessionActive, startSession]);
-
-  // Submit score and stats when game ends
-  useEffect(() => {
-    if (
-      state.status === "game_over" &&
-      !scoreSubmittedRef.current &&
-      state.score > 0
-    ) {
-      scoreSubmittedRef.current = true;
-      submitScore(state.score).then((position) => {
-        if (position > 0) {
-          setState((prev) => ({ ...prev, leaderboardPosition: position }));
-        }
-      });
-    }
-
-    // Record stats when game ends
-    if (state.status === "game_over" && !statsSubmittedRef.current) {
-      statsSubmittedRef.current = true;
-      void endSession(state.score);
-    }
-  }, [state.status, state.score, submitScore, endSession]);
 
   const moveSnake = useCallback(() => {
     setState((prev) => {
@@ -368,17 +195,21 @@ export function SnakeGame({
         newHead.y <= 0 ||
         newHead.y >= boardHeight - 1
       ) {
+        const newHighScore = Math.max(prev.score, prev.highScore);
         return {
           ...prev,
           status: "game_over",
+          highScore: newHighScore,
         };
       }
 
       // Check self collision
       if (prev.snake.some((segment) => pointsEqual(segment, newHead))) {
+        const newHighScore = Math.max(prev.score, prev.highScore);
         return {
           ...prev,
           status: "game_over",
+          highScore: newHighScore,
         };
       }
 
@@ -418,120 +249,227 @@ export function SnakeGame({
     },
   });
 
-  // Handle input
-  useInput(
-    (input, key) => {
-      if (!hasFocus) return;
+  // Handle keyboard input
+  useKeyboard(
+    useCallback(
+      (key) => {
+        if (!hasFocus) return;
 
-      // Exit to menu
-      if (input === "q" || input === "Q" || key.escape) {
-        onExit();
-        return;
-      }
+        const keyName = key.name.toLowerCase();
 
-      // Restart
-      if (input === "r" || input === "R") {
-        scoreSubmittedRef.current = false;
-        statsSubmittedRef.current = false;
-        setState(createInitialState(boardWidth, boardHeight));
-        setLastMoveTime(0);
-        return;
-      }
-
-      // Show leaderboard (when game over or paused)
-      if ((input === "h" || input === "H") && state.status !== "playing") {
-        setState((prev) => ({
-          ...prev,
-          status: prev.status === "leaderboard" ? "game_over" : "leaderboard",
-        }));
-        return;
-      }
-
-      // Dismiss loop alert with Enter key
-      if (key.return && showLoopAlert) {
-        setShowLoopAlert(false);
-        onLoopAlertDismiss?.();
-        return;
-      }
-
-      // Pause/unpause
-      if (input === "p" || input === "P") {
-        // If we're showing loop alert, dismiss it and resume
-        if (showLoopAlert) {
-          setShowLoopAlert(false);
-          setWasPlayingBeforeAlert(false);
+        // Exit to menu
+        if (keyName === "q" || keyName === "escape") {
+          onExit();
+          return;
         }
-        setState((prev) => ({
-          ...prev,
-          status: prev.status === "playing" ? "paused" : "playing",
-        }));
-        return;
+
+        // Restart
+        if (keyName === "r") {
+          setState((prev) =>
+            createInitialState(boardWidth, boardHeight, prev.highScore)
+          );
+          setLastMoveTime(0);
+          return;
+        }
+
+        // Dismiss loop alert with Enter key
+        if (keyName === "return" && showLoopAlert) {
+          setShowLoopAlert(false);
+          onLoopAlertDismiss?.();
+          return;
+        }
+
+        // Pause/unpause
+        if (keyName === "p") {
+          if (showLoopAlert) {
+            setShowLoopAlert(false);
+            setWasPlayingBeforeAlert(false);
+          }
+          setState((prev) => ({
+            ...prev,
+            status: prev.status === "playing" ? "paused" : "playing",
+          }));
+          return;
+        }
+
+        // Direction changes (only while playing)
+        if (state.status !== "playing") return;
+
+        // Prevent 180-degree turns
+        const currentDir = state.direction;
+
+        if (
+          (keyName === "up" || keyName === "arrowup" || keyName === "w") &&
+          currentDir !== "down"
+        ) {
+          setState((prev) => ({ ...prev, nextDirection: "up" }));
+        } else if (
+          (keyName === "down" || keyName === "arrowdown" || keyName === "s") &&
+          currentDir !== "up"
+        ) {
+          setState((prev) => ({ ...prev, nextDirection: "down" }));
+        } else if (
+          (keyName === "left" || keyName === "arrowleft" || keyName === "a") &&
+          currentDir !== "right"
+        ) {
+          setState((prev) => ({ ...prev, nextDirection: "left" }));
+        } else if (
+          (keyName === "right" || keyName === "arrowright" || keyName === "d") &&
+          currentDir !== "left"
+        ) {
+          setState((prev) => ({ ...prev, nextDirection: "right" }));
+        }
+      },
+      [hasFocus, state.status, state.direction, showLoopAlert, boardWidth, boardHeight, onExit, onLoopAlertDismiss]
+    )
+  );
+
+  // Build the game board as a 2D array
+  const board: string[][] = [];
+  for (let y = 0; y < boardHeight; y++) {
+    const row: string[] = [];
+    for (let x = 0; x < boardWidth; x++) {
+      // Border
+      if (y === 0 || y === boardHeight - 1) {
+        row.push("─");
+      } else if (x === 0 || x === boardWidth - 1) {
+        row.push("│");
+      } else {
+        row.push(" ");
       }
+    }
+    board.push(row);
+  }
 
-      // Direction changes (only while playing)
-      if (state.status !== "playing") return;
+  // Corners
+  if (boardHeight > 0 && boardWidth > 0) {
+    board[0][0] = "┌";
+    board[0][boardWidth - 1] = "┐";
+    board[boardHeight - 1][0] = "└";
+    board[boardHeight - 1][boardWidth - 1] = "┘";
+  }
 
-      // Prevent 180-degree turns
-      const currentDir = state.direction;
+  // Place food
+  if (
+    state.food.y > 0 &&
+    state.food.y < boardHeight - 1 &&
+    state.food.x > 0 &&
+    state.food.x < boardWidth - 1
+  ) {
+    board[state.food.y][state.food.x] = "●";
+  }
 
-      if (
-        (key.upArrow || input === "w" || input === "W") &&
-        currentDir !== "down"
-      ) {
-        setState((prev) => ({ ...prev, nextDirection: "up" }));
-      } else if (
-        (key.downArrow || input === "s" || input === "S") &&
-        currentDir !== "up"
-      ) {
-        setState((prev) => ({ ...prev, nextDirection: "down" }));
-      } else if (
-        (key.leftArrow || input === "a" || input === "A") &&
-        currentDir !== "right"
-      ) {
-        setState((prev) => ({ ...prev, nextDirection: "left" }));
-      } else if (
-        (key.rightArrow || input === "d" || input === "D") &&
-        currentDir !== "left"
-      ) {
-        setState((prev) => ({ ...prev, nextDirection: "right" }));
-      }
-    },
-    { isActive: hasFocus }
+  // Place snake
+  state.snake.forEach((segment, index) => {
+    if (
+      segment.y > 0 &&
+      segment.y < boardHeight - 1 &&
+      segment.x > 0 &&
+      segment.x < boardWidth - 1
+    ) {
+      board[segment.y][segment.x] = index === 0 ? "█" : "▓";
+    }
+  });
+
+  // Render HUD
+  const renderHUD = () => (
+    <box style={{ flexDirection: "row", justifyContent: "space-between", paddingLeft: 1, paddingRight: 1 }}>
+      <text>
+        Score: <span fg={COLORS.score}>{state.score}</span>
+      </text>
+      <text fg={COLORS.highScore}>High: {state.highScore}</text>
+      <text fg={COLORS.fps}>{loopInfo.fps} FPS</text>
+    </box>
+  );
+
+  // Render game over overlay
+  const renderGameOver = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      <text fg={COLORS.gameOver}>
+        <strong>GAME OVER</strong>
+      </text>
+      <text>
+        Score: <span fg={COLORS.score}>{state.score}</span>
+      </text>
+      {state.score >= state.highScore && state.score > 0 && (
+        <text fg={COLORS.score}>NEW HIGH SCORE!</text>
+      )}
+      <text fg={COLORS.hint}>Press R to restart | Q to exit</text>
+    </box>
+  );
+
+  // Render paused overlay
+  const renderPaused = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      {showLoopAlert && loopAttention ? (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>CLAUDE NEEDS INPUT</strong>
+          </text>
+          <text fg={COLORS.hint}>{loopAttention.reason || "Waiting for input..."}</text>
+          <text fg={COLORS.hint}>Press Enter to dismiss | P to resume</text>
+        </>
+      ) : (
+        <>
+          <text fg={COLORS.paused}>
+            <strong>PAUSED</strong>
+          </text>
+          <text fg={COLORS.hint}>Press P to resume</text>
+        </>
+      )}
+    </box>
+  );
+
+  // Render the game board
+  const renderBoard = () => (
+    <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+      {board.map((row, y) => (
+        <box key={y} style={{ flexDirection: "row" }}>
+          {row.map((cell, x) => {
+            let color: string = COLORS.border;
+            const isSnakeHead =
+              state.snake[0] && state.snake[0].x === x && state.snake[0].y === y;
+            const isSnakeBody = state.snake
+              .slice(1)
+              .some((s) => s.x === x && s.y === y);
+            const isFood = state.food.x === x && state.food.y === y;
+
+            if (isSnakeHead) {
+              color = COLORS.snakeHead;
+            } else if (isSnakeBody) {
+              color = COLORS.snakeBody;
+            } else if (isFood) {
+              color = COLORS.food;
+            }
+
+            return (
+              <text key={x} fg={color}>
+                {cell}
+              </text>
+            );
+          })}
+        </box>
+      ))}
+    </box>
+  );
+
+  // Render controls hint
+  const renderControls = () => (
+    <box style={{ paddingLeft: 1 }}>
+      <text fg={COLORS.hint}>Arrow keys/WASD: Move | P: Pause | R: Restart | Q: Exit</text>
+    </box>
   );
 
   return (
-    <Box flexDirection="column" height="100%" overflow="hidden">
-      <GameHUD score={state.score} highScore={highScore} fps={loopInfo.fps} />
-
-      <Box flexGrow={1} justifyContent="center" alignItems="center">
-        {state.status === "leaderboard" ? (
-          <Leaderboard
-            title="Snake High Scores"
-            scores={leaderboard}
-            highlightPosition={state.leaderboardPosition}
-          />
-        ) : state.status === "game_over" ? (
-          <GameOverOverlay
-            score={state.score}
-            leaderboardPosition={state.leaderboardPosition}
-          />
-        ) : state.status === "paused" && showLoopAlert && loopAttention ? (
-          <LoopAlertOverlay
-            attention={loopAttention}
-            onDismiss={onLoopAlertDismiss}
-          />
-        ) : state.status === "paused" ? (
-          <PausedOverlay />
-        ) : (
-          <GameBoard
-            snake={state.snake}
-            food={state.food}
-            width={boardWidth}
-            height={boardHeight}
-          />
-        )}
-      </Box>
-    </Box>
+    <box style={{ flexDirection: "column", flexGrow: 1 }}>
+      {renderHUD()}
+      {state.status === "game_over"
+        ? renderGameOver()
+        : state.status === "paused"
+        ? renderPaused()
+        : renderBoard()}
+      {renderControls()}
+    </box>
   );
 }
 

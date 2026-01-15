@@ -1,9 +1,11 @@
 /**
- * Game Framework Types and Interfaces
+ * Game Framework Types and Interfaces for OpenTUI
  *
  * Provides common types for building terminal games that run
  * alongside Claude Code work.
  */
+
+import type { ReactNode } from "react";
 
 /**
  * Game state status
@@ -193,39 +195,53 @@ export function addVectors(a: Vector2D, b: Vector2D): Vector2D {
 }
 
 /**
- * Create a game input object from ink's useInput callback params
+ * OpenTUI keyboard event interface
+ * Based on OpenTUI's useKeyboard hook event structure
  */
-export function createGameInput(
-  input: string,
-  key: {
-    upArrow: boolean;
-    downArrow: boolean;
-    leftArrow: boolean;
-    rightArrow: boolean;
-    return: boolean;
-    escape: boolean;
-    ctrl: boolean;
-    shift: boolean;
-    meta: boolean;
-    tab: boolean;
-    backspace: boolean;
-    delete: boolean;
-  }
-): GameInput {
+export interface OpenTUIKeyEvent {
+  key: string;
+  ctrl: boolean;
+  shift: boolean;
+  meta: boolean;
+  alt: boolean;
+}
+
+/**
+ * Create a game input object from OpenTUI's keyboard event
+ */
+export function createGameInput(event: OpenTUIKeyEvent): GameInput {
+  const key = event.key.toLowerCase();
+
   return {
-    key: input,
-    ctrl: key.ctrl,
-    shift: key.shift,
-    meta: key.meta,
-    upArrow: key.upArrow,
-    downArrow: key.downArrow,
-    leftArrow: key.leftArrow,
-    rightArrow: key.rightArrow,
-    return: key.return,
-    escape: key.escape,
-    space: input === " ",
-    tab: key.tab,
-    backspace: key.backspace,
-    delete: key.delete,
+    key: event.key,
+    ctrl: event.ctrl,
+    shift: event.shift,
+    meta: event.meta,
+    upArrow: key === "up" || key === "arrowup",
+    downArrow: key === "down" || key === "arrowdown",
+    leftArrow: key === "left" || key === "arrowleft",
+    rightArrow: key === "right" || key === "arrowright",
+    return: key === "return" || key === "enter",
+    escape: key === "escape" || key === "esc",
+    space: key === " " || key === "space",
+    tab: key === "tab",
+    backspace: key === "backspace",
+    delete: key === "delete",
   };
+}
+
+/**
+ * Game panel props for container component
+ */
+export interface GamePanelContainerProps {
+  /** Whether the panel has focus */
+  hasFocus: boolean;
+  /** Game component to render */
+  game?: ReactNode;
+  /** Active game name */
+  gameName?: string;
+  /** Current score */
+  score?: number;
+  /** High score */
+  highScore?: number;
 }
