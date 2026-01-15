@@ -287,6 +287,42 @@
   - Verified: `npm run typecheck` passes
   - Verified: `npm run build` passes
 
+- [x] **Task 5.3: Error handling**
+  - Created `src-opentui/errors/types.ts` - Error types and utilities
+    - ErrorCategory type: process, prd, config, render, network, unknown
+    - ErrorSeverity type: warning, error, fatal
+    - RecoveryAction type: retry, restart, reload_config, reload_prd, kill_process, dismiss
+    - AppError interface with id, category, severity, message, details, stack, timestamp, recoveryActions, cause
+    - Factory functions: createAppError, createProcessError, createPRDError, createConfigError, createRenderError
+    - Default recovery actions based on error category and severity
+    - Display utilities: formatErrorMessage, formatErrorDetails, getRecoveryActionLabel, getRecoveryActionHint
+  - Created `src-opentui/errors/index.ts` - Module exports
+  - Created `src-opentui/components/ErrorBoundary.tsx` - React error boundary
+    - Class component implementing getDerivedStateFromError and componentDidCatch
+    - Converts caught errors to AppError via createRenderError
+    - Callback notification to parent components via onError prop
+    - Customizable fallback UI via fallback render prop
+    - Reset functionality to retry rendering
+  - Created `src-opentui/components/ErrorDisplay.tsx` - User-friendly error UI
+    - Visual error indicator with severity-based colors and icons
+    - Error message and category display
+    - Technical details section (for debug mode)
+    - Stack trace display (truncated, for debug mode)
+    - Recovery action buttons with keyboard shortcuts (R=retry, Esc=dismiss, etc.)
+    - Timestamp and error ID display for debugging
+    - Full keyboard navigation via useKeyboard hook
+  - Updated `src-opentui/components/index.ts` - Added ErrorBoundary and ErrorDisplay exports
+  - Updated `src-opentui/App.tsx` - Integrated error handling
+    - Changed error state from string to AppError type
+    - Added previousState tracking for error recovery
+    - Added handleBoundaryError callback for ErrorBoundary
+    - Added handleRecoveryAction callback for recovery actions
+    - Error overlay with ErrorDisplay when in ERROR state
+    - Wrapped main content with ErrorBoundary
+    - Ctrl+E test now creates proper AppError
+  - Verified: `npm run typecheck` passes
+  - Verified: `npm run build` passes
+
 ## Current Session
 
 Started: 2026-01-15

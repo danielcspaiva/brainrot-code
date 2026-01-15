@@ -12,7 +12,19 @@
 
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { useState, useCallback } from "react";
-import { Layout, ClaudePanel, GamePanel, StatusBar } from "./components/index.js";
+import {
+  Layout,
+  ClaudePanel,
+  GamePanel,
+  StatusBar,
+  ErrorBoundary,
+  ErrorDisplay,
+} from "./components/index.js";
+import {
+  type AppError,
+  type RecoveryAction,
+  createAppError,
+} from "./errors/index.js";
 
 /** Application state machine states */
 export type AppState =
@@ -30,7 +42,7 @@ export type FocusTarget = "claude" | "game";
 export interface AppContext {
   state: AppState;
   focus: FocusTarget;
-  error: string | null;
+  error: AppError | null;
 }
 
 /** State display configuration */
@@ -47,7 +59,48 @@ export default function App() {
   const { width, height } = useTerminalDimensions();
   const [appState, setAppState] = useState<AppState>("INIT");
   const [focus, setFocus] = useState<FocusTarget>("claude");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
+  const [previousState, setPreviousState] = useState<AppState>("INIT");
+
+  // Handle error boundary catches
+  const handleBoundaryError = useCallback((boundaryError: AppError) => {
+    setPreviousState(appState);
+    setError(boundaryError);
+    setAppState("ERROR");
+  }, [appState]);
+
+  // Handle recovery actions from error display
+  const handleRecoveryAction = useCallback(
+    (action: RecoveryAction) => {
+      switch (action) {
+        case "dismiss":
+          setError(null);
+          setAppState(previousState);
+          break;
+        case "retry":
+          setError(null);
+          setAppState(previousState);
+          break;
+        case "restart":
+          setError(null);
+          setAppState("INIT");
+          break;
+        case "reload_config":
+          setError(null);
+          setAppState("INIT");
+          break;
+        case "reload_prd":
+          setError(null);
+          setAppState("PRD_INPUT");
+          break;
+        case "kill_process":
+          setError(null);
+          setAppState("INIT");
+          break;
+      }
+    },
+    [previousState]
+  );
 
   // Handle global keyboard shortcuts
   useKeyboard(
@@ -90,41 +143,68 @@ export default function App() {
         if (key.ctrl && key.name === "e") {
           if (appState === "ERROR") {
             setError(null);
-            setAppState("INIT");
+            setAppState(previousState);
           } else {
-            setError("Test error message");
+            setPreviousState(appState);
+            setError(
+              createAppError("unknown", "Test error message", {
+                severity: "error",
+                details: "This is a test error triggered with Ctrl+E",
+                recoveryActions: ["retry", "dismiss"],
+              })
+            );
             setAppState("ERROR");
           }
         }
       },
-      [appState]
+      [appState, previousState]
     )
   );
 
   const stateInfo = STATE_INFO[appState];
 
-  return (
-    <Layout
-      focus={focus}
-      leftPanel={
-        <ClaudePanel
-          hasFocus={focus === "claude"}
-          error={error}
-        />
-      }
-      rightPanel={
-        <GamePanel
-          hasFocus={focus === "game"}
-        />
-      }
-      statusBar={
+  // When in error state, show error overlay
+  if (appState === "ERROR" && error) {
+    return (
+      <box flexDirection="column" width="100%" height="100%">
+        <box flexGrow={1} padding={2} justifyContent="center" alignItems="center">
+          <ErrorDisplay
+            error={error}
+            showDetails={true}
+            onRecoveryAction={handleRecoveryAction}
+            hasFocus={true}
+          />
+        </box>
         <StatusBar
           stateLabel={stateInfo.label}
           stateColor={stateInfo.color}
           focus={focus}
           dimensions={{ width, height }}
         />
-      }
-    />
+      </box>
+    );
+  }
+
+  return (
+    <ErrorBoundary onError={handleBoundaryError}>
+      <Layout
+        focus={focus}
+        leftPanel={
+          <ClaudePanel
+            hasFocus={focus === "claude"}
+            error={error?.message ?? null}
+          />
+        }
+        rightPanel={<GamePanel hasFocus={focus === "game"} />}
+        statusBar={
+          <StatusBar
+            stateLabel={stateInfo.label}
+            stateColor={stateInfo.color}
+            focus={focus}
+            dimensions={{ width, height }}
+          />
+        }
+      />
+    </ErrorBoundary>
   );
 }
